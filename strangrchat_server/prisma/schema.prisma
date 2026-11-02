@@ -1,0 +1,90 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Intent {
+  FRIENDS
+  RELATIONSHIP
+  MARRIED
+  TIPS
+}
+
+enum FriendshipStatus {
+  PENDING
+  ACCEPTED
+}
+
+model User {
+  id               String            @id @default(uuid()) @db.Uuid
+  deviceId         String            @unique
+  isAdultVerified  Boolean           @default(false)
+  strikeCount      Int               @default(0)
+  isBanned         Boolean           @default(false)
+  createdAt        DateTime          @default(now())
+
+  // Relations
+  preference       UserPreference?
+  sentFriendships  Friendship[]      @relation("User1Friendships")
+  receivedFriendships Friendship[]   @relation("User2Friendships")
+  entitlements     Entitlement[]
+  submittedReports ModerationReport[] @relation("Reporter")
+  receivedReports  ModerationReport[] @relation("ReportedUser")
+}
+
+model UserPreference {
+  userId      String   @id @db.Uuid
+  gender      String   @default("ANY")
+  intent      Intent   @default(FRIENDS)
+  countryCode String?
+  city        String?
+  hobbies     String[] @default([])
+
+  // Relation
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Friendship {
+  id        String           @id @default(uuid()) @db.Uuid
+  user1Id   String           @db.Uuid
+  user2Id   String           @db.Uuid
+  status    FriendshipStatus @default(PENDING)
+  createdAt DateTime         @default(now())
+
+  // Relations
+  user1     User             @relation("User1Friendships", fields: [user1Id], references: [id], onDelete: Cascade)
+  user2     User             @relation("User2Friendships", fields: [user2Id], references: [id], onDelete: Cascade)
+
+  @@unique([user1Id, user2Id])
+}
+
+model Entitlement {
+  id                String   @id @default(uuid()) @db.Uuid
+  userId            String   @db.Uuid
+  playPurchaseToken String
+  planType          String
+  expiresAt         DateTime
+  isActive          Boolean  @default(true)
+
+  // Relation
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model ModerationReport {
+  id              String   @id @default(uuid()) @db.Uuid
+  reporterId      String   @db.Uuid
+  reportedUserId  String   @db.Uuid
+  reason          String
+  messageSnapshot String?
+  createdAt       DateTime @default(now())
+
+  // Relations
+  reporter        User     @relation("Reporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  reportedUser    User     @relation("ReportedUser", fields: [reportedUserId], references: [id], onDelete: Cascade)
+}

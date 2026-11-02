@@ -1,0 +1,89 @@
+version: '3.8'
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: strangrchat_caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - DOMAIN=${DOMAIN:-localhost}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - backend
+    networks:
+      - strangrchat_net
+
+  backend:
+    build:
+      context: ./strangrchat_server
+      dockerfile: Dockerfile
+    container_name: strangrchat_backend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - PORT=3000
+      - DATABASE_URL=${DATABASE_URL:-postgresql://strangr:strangr_secure_password_change_me@postgres:5432/strangrchat_db?schema=public}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - JWT_SECRET=${JWT_SECRET:-default_secret_please_change}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - strangrchat_net
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: strangrchat_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-strangr}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-strangr_secure_password_change_me}
+      POSTGRES_DB: ${POSTGRES_DB:-strangrchat_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-strangr} -d $${POSTGRES_DB:-strangrchat_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - strangrchat_net
+
+  redis:
+    image: redis:7-alpine
+    container_name: strangrchat_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - strangrchat_net
+
+networks:
+  strangrchat_net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  caddy_data:
+  caddy_config:
