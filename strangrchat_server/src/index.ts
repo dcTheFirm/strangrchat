@@ -75,8 +75,8 @@ app.get('/health', async (_req, res) => {
 
 interface AuthenticatedSocket extends Socket {
   user?: AuthPayload;
-}
   currentQueue?: { intent: string; preferredGender: string };
+}
 
 
 io.use((socket: AuthenticatedSocket, next) => {
@@ -102,14 +102,15 @@ io.on('connection', (socket: AuthenticatedSocket) => {
   console.log(`[Socket] User connected: ${userId}`);
 
   socket.on('join_queue', async (data) => {
-    const { intent, gender, preferredGender } = data;
+    const { intent, gender, preferredGender, city } = data;
     
     const criteria: MatchCriteria = {
       userId,
       socketId: socket.id,
       intent: intent || 'FRIENDS',
       gender: gender || 'ANY',
-      preferredGender: preferredGender || 'ANY'
+      preferredGender: preferredGender || 'ANY',
+      city: city || undefined
     };
 
     socket.currentQueue = { intent: criteria.intent, preferredGender: criteria.preferredGender };

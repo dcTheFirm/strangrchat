@@ -1,19 +1,39 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../app/theme.dart';
+import '../../core/network/auth_service.dart';
 
-class OnboardingScreen extends StatefulWidget {
+class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
 
   @override
-  State<OnboardingScreen> createState() => _OnboardingScreenState();
+  ConsumerState<OnboardingScreen> createState() => _OnboardingScreenState();
 }
 
-class _OnboardingScreenState extends State<OnboardingScreen> {
+class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   bool _is18PlusChecked = false;
   bool _isUgcTermsChecked = false;
 
   bool get _canProceed => _is18PlusChecked && _isUgcTermsChecked;
+
+  @override
+  void initState() {
+    super.initState();
+    // Anonymous auth is intentionally silent; matchmaking retries it if the
+    // server was not running while the user was reading onboarding.
+    unawaited(_startAnonymousSession());
+  }
+
+  Future<void> _startAnonymousSession() async {
+    try {
+      await ref.read(authServiceProvider).ensureAnonymousSession();
+    } catch (error) {
+      debugPrint('Anonymous session bootstrap deferred: $error');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

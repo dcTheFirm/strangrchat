@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/theme.dart';
 import '../friends/friends_list_screen.dart';
+import '../random_chat/chat_provider.dart';
 import '../vip/vip_provider.dart';
 import 'match_filter_provider.dart';
 
@@ -49,7 +52,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       body: IndexedStack(index: _selectedTab, children: const [_SmartMatchView(), FriendsListScreen()]),
       floatingActionButton: _selectedTab == 0
           ? FloatingActionButton.extended(
-              onPressed: () => context.push('/chat'),
+              onPressed: () {
+                final filters = ref.read(matchFilterProvider);
+                unawaited(ref.read(chatProvider.notifier).joinQueue(
+                      intent: filters.intent,
+                      preferredGender: filters.gender,
+                      city: filters.city,
+                    ));
+                context.push('/chat');
+              },
               backgroundColor: AppTheme.primaryCoral,
               icon: const Icon(Icons.bolt_rounded, color: Colors.white),
               label: const Text('Find Partner', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),

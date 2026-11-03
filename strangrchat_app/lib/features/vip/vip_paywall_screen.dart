@@ -27,7 +27,10 @@ class _VipPaywallScreenState extends ConsumerState<VipPaywallScreen> {
   }
 
   Future<void> _initializePurchases() async {
-    await _purchases.initialize(onPurchaseGranted: _grantVipAccess);
+    await _purchases.initialize(
+      onPurchaseGranted: _grantVipAccess,
+      onPurchaseValidationFailed: _showValidationFailure,
+    );
     if (mounted) setState(() => _isLoading = false);
   }
 
@@ -41,6 +44,12 @@ class _VipPaywallScreenState extends ConsumerState<VipPaywallScreen> {
       const SnackBar(content: Text('VIP is active. Enjoy your premium matching tools!'), backgroundColor: AppTheme.primaryCoral),
     );
     context.pop();
+  }
+
+  void _showValidationFailure(String message) {
+    if (!mounted) return;
+    setState(() => _purchaseInProgress = false);
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _buySelectedPlan() async {
@@ -124,7 +133,7 @@ class _VipPaywallScreenState extends ConsumerState<VipPaywallScreen> {
               onPressed: _isLoading || _purchaseInProgress ? null : _buySelectedPlan,
               child: _purchaseInProgress
                   ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : Text('Continue with Google Play \\u00B7 $selectedPrice'),
+                  : Text('Continue with Google Play \u00B7 $selectedPrice'),
             ),
             const SizedBox(height: 14),
             const Text('Your purchase is processed securely by Google Play. Subscription terms and renewal details are shown before payment.', textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: AppTheme.secondaryText)),
@@ -140,7 +149,7 @@ class _VipPaywallScreenState extends ConsumerState<VipPaywallScreen> {
     if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Checking Google Play for previous purchases...')));
   }
 
-  String _priceFor(String productId) => _purchases.productFor(productId)?.price ?? (productId == VipPurchaseService.pass48HoursId ? '\\u20B949' : '\\u20B9199');
+  String _priceFor(String productId) => _purchases.productFor(productId)?.price ?? (productId == VipPurchaseService.pass48HoursId ? '\u20B949' : '\u20B9199');
 }
 
 class _Perk extends StatelessWidget {

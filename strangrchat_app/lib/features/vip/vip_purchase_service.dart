@@ -3,19 +3,24 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 
+import '../../core/network/api_client.dart';
+
 /// Thin Google Play Billing boundary for VIP products.
 ///
 /// Product IDs must exactly match the products configured in Play Console.  A
 /// backend should validate [PurchaseDetails.verificationData] before granting
 /// an entitlement in production; Phase 5 deliberately keeps that step local.
 class VipPurchaseService {
-  VipPurchaseService({InAppPurchase? inAppPurchase}) : _iap = inAppPurchase ?? InAppPurchase.instance;
+  VipPurchaseService({InAppPurchase? inAppPurchase, ApiClient? apiClient})
+      : _iap = inAppPurchase ?? InAppPurchase.instance,
+        _apiClient = apiClient ?? ApiClient();
 
   static const pass48HoursId = 'strangr_vip_48h';
   static const monthlyId = 'strangr_vip_monthly';
   static const productIds = <String>{pass48HoursId, monthlyId};
 
   final InAppPurchase _iap;
+  final ApiClient _apiClient;
   StreamSubscription<List<PurchaseDetails>>? _purchaseSubscription;
 
   bool _storeAvailable = false;
@@ -28,10 +33,17 @@ class VipPurchaseService {
 
   /// Starts listening before products are queried, so a purchase updated while
   /// the paywall is opening cannot be missed.
-  Future<void> initialize({required ValueChanged<PurchaseDetails> onPurchaseGranted}) async {
+  Future<void> initialize({
+    required ValueChanged<PurchaseDetails> onPurchaseGranted,
+    ValueChanged<String>? onPurchaseValidationFailed,
+  }) async {
     await _purchaseSubscription?.cancel();
     _purchaseSubscription = _iap.purchaseStream.listen(
-      (purchases) => _handlePurchaseUpdates(purchases, onPurchaseGranted),
+      (purchases) => _handlePurchaseUpdates(
+        purchases,
+        onPurchaseGranted,
+        onPurchaseValidationFailed,
+      ),
       onError: (Object error, StackTrace stackTrace) {
         debugPrint('VIP purchase stream error: $error');
       },
@@ -81,16 +93,25 @@ class VipPurchaseService {
   Future<void> _handlePurchaseUpdates(
     List<PurchaseDetails> purchases,
     ValueChanged<PurchaseDetails> onPurchaseGranted,
+    ValueChanged<String>? onPurchaseValidationFailed,
   ) async {
     for (final purchase in purchases) {
+      var validationSucceeded = false;
       switch (purchase.status) {
         case PurchaseStatus.pending:
           debugPrint('VIP purchase pending: ${purchase.productID}');
           break;
         case PurchaseStatus.purchased:
         case PurchaseStatus.restored:
-          // TODO(backend): validate purchase.verificationData before this call.
-          onPurchaseGranted(purchase);
+          final validated = await _validateWithServer(purchase);
+          if (validated) {
+            validationSucceeded = true;
+            onPurchaseGranted(purchase);
+          } else {
+            onPurchaseValidationFailed?.call(
+              'Your purchase could not be validated. Please try restoring it later.',
+            );
+          }
           break;
         case PurchaseStatus.error:
           debugPrint('VIP purchase failed: ${purchase.error}');
@@ -100,9 +121,37 @@ class VipPurchaseService {
           break;
       }
 
-      if (purchase.pendingCompletePurchase) {
+      // Acknowledge only a verified entitlement. This lets Google Play retry
+      // delivery if the server is temporarily unavailable.
+      if (purchase.pendingCompletePurchase &&
+          ((purchase.status != PurchaseStatus.purchased &&
+              purchase.status != PurchaseStatus.restored) ||
+              validationSucceeded)) {
         await _iap.completePurchase(purchase);
       }
+    }
+  }
+
+  Future<bool> _validateWithServer(PurchaseDetails purchase) async {
+    final purchaseToken = purchase.verificationData.serverVerificationData;
+    if (purchaseToken.isEmpty) return false;
+
+    try {
+      final response = await _apiClient.post<Map<String, dynamic>>(
+        '/vip/validate-purchase',
+        data: {
+          'productId': purchase.productID,
+          'purchaseToken': purchaseToken,
+          'verificationSource': purchase.verificationData.source,
+        },
+      );
+      return response.statusCode != null &&
+          response.statusCode! >= 200 &&
+          response.statusCode! < 300 &&
+          response.data?['success'] == true;
+    } catch (error) {
+      debugPrint('VIP server validation failed: $error');
+      return false;
     }
   }
 

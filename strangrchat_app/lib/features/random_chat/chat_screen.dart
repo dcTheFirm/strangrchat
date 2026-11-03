@@ -52,12 +52,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       return;
     }
 
-    ref.read(chatProvider.notifier).addMessage(ChatMessage(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          text: text,
-          isMe: true,
-          timestamp: DateTime.now(),
-        ));
+    ref.read(chatProvider.notifier).sendText(text);
 
     _textController.clear();
     _scrollToBottom();
@@ -90,13 +85,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         return;
       }
 
-      ref.read(chatProvider.notifier).addMessage(ChatMessage(
-            id: DateTime.now().millisecondsSinceEpoch.toString(),
-            text: '',
-            imageFile: compressedFile,
-            isMe: true,
-            timestamp: DateTime.now(),
-          ));
+      final imageBytes = await compressedFile.readAsBytes();
+      ref.read(chatProvider.notifier).sendImage(compressedFile, imageBytes);
 
       _scrollToBottom();
     } catch (e) {
@@ -329,11 +319,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         child: Column(
           crossAxisAlignment: msg.isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           children: [
-            if (msg.imageFile != null) ...[
+            if (msg.imageFile != null || msg.imageBytes != null) ...[
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
-                child: Image.file(
-                  msg.imageFile!,
+                child: msg.imageFile != null
+                    ? Image.file(
+                        msg.imageFile!,
+                        width: 200,
+                        height: 200,
+                        fit: BoxFit.cover,
+                      )
+                    : Image.memory(
+                        msg.imageBytes!,
                   width: 200,
                   height: 200,
                   fit: BoxFit.cover,
