@@ -1,4 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../vip/vip_provider.dart';
+
+/// The free matching mode stays broad; precise locations are a VIP benefit.
+const String nearbyCityOption = 'Nearby (any city)';
 
 class MatchFilterState {
   final String intent; // 'FRIENDS', 'RELATIONSHIP', 'MARRIED', 'TIPS'
@@ -9,7 +13,7 @@ class MatchFilterState {
 
   MatchFilterState({
     this.intent = 'FRIENDS',
-    this.city = 'Mumbai',
+    this.city = nearbyCityOption,
     this.radiusKm = 25.0,
     this.selectedHobbies = const [],
     this.gender = 'ANY',
@@ -37,9 +41,20 @@ class MatchFilterNotifier extends Notifier<MatchFilterState> {
   MatchFilterState build() => MatchFilterState();
 
   void setIntent(String intent) => state = state.copyWith(intent: intent);
-  void setCity(String city) => state = state.copyWith(city: city);
+
+  /// Returns false when selecting an exact city requires VIP.
+  bool setCity(String city) {
+    if (city != nearbyCityOption && !ref.read(vipProvider).isActive) return false;
+    state = state.copyWith(city: city);
+    return true;
+  }
   void setRadius(double radius) => state = state.copyWith(radiusKm: radius);
-  void setGender(String gender) => state = state.copyWith(gender: gender);
+  /// Returns false when selecting a specific gender requires VIP.
+  bool setGender(String gender) {
+    if (gender != 'ANY' && !ref.read(vipProvider).isActive) return false;
+    state = state.copyWith(gender: gender);
+    return true;
+  }
 
   void toggleHobby(String hobby) {
     final currentHobbies = List<String>.from(state.selectedHobbies);

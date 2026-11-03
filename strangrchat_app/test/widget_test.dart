@@ -33,7 +33,7 @@ void main() {
     await tester.tap(startButtonFinder);
     await tester.pumpAndSettle();
 
-    expect(find.text('StrangrChat Matchmaking'), findsOneWidget);
+    expect(find.text('Smart Match'), findsOneWidget);
   });
 }
 

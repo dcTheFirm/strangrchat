@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../features/onboarding/onboarding_screen.dart';
 import '../features/home/home_screen.dart';
 import '../features/random_chat/chat_screen.dart';
+import '../features/vip/vip_paywall_screen.dart';
 
 final GoRouter appRouter = GoRouter(
   initialLocation: '/',
@@ -21,6 +22,11 @@ final GoRouter appRouter = GoRouter(
       path: '/chat',
       name: 'chat',
       builder: (context, state) => const ChatScreen(),
+    ),
+    GoRoute(
+      path: '/vip',
+      name: 'vip',
+      builder: (context, state) => const VipPaywallScreen(),
     ),
   ],
 );

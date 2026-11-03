@@ -1,73 +1,113 @@
 import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 
+/// Thin Google Play Billing boundary for VIP products.
+///
+/// Product IDs must exactly match the products configured in Play Console.  A
+/// backend should validate [PurchaseDetails.verificationData] before granting
+/// an entitlement in production; Phase 5 deliberately keeps that step local.
 class VipPurchaseService {
-  final InAppPurchase _iap = InAppPurchase.instance;
-  StreamSubscription<List<PurchaseDetails>>? _subscription;
+  VipPurchaseService({InAppPurchase? inAppPurchase}) : _iap = inAppPurchase ?? InAppPurchase.instance;
 
-  static const Set<String> _productIds = {
-    'strangr_vip_48h',
-    'strangr_vip_monthly',
-  };
+  static const pass48HoursId = 'strangr_vip_48h';
+  static const monthlyId = 'strangr_vip_monthly';
+  static const productIds = <String>{pass48HoursId, monthlyId};
 
-  bool _isAvailable = false;
-  List<ProductDetails> _products = [];
+  final InAppPurchase _iap;
+  StreamSubscription<List<PurchaseDetails>>? _purchaseSubscription;
 
-  bool get isAvailable => _isAvailable;
-  List<ProductDetails> get products => _products;
+  bool _storeAvailable = false;
+  List<ProductDetails> _products = const [];
+  String? _storeError;
 
-  void initialize(Function(PurchaseDetails) onPurchaseSuccess) {
-    final purchaseUpdated = _iap.purchaseStream;
-    _subscription = purchaseUpdated.listen(
-      (purchaseDetailsList) {
-        _listenToPurchaseUpdated(purchaseDetailsList, onPurchaseSuccess);
+  bool get storeAvailable => _storeAvailable;
+  List<ProductDetails> get products => List.unmodifiable(_products);
+  String? get storeError => _storeError;
+
+  /// Starts listening before products are queried, so a purchase updated while
+  /// the paywall is opening cannot be missed.
+  Future<void> initialize({required ValueChanged<PurchaseDetails> onPurchaseGranted}) async {
+    await _purchaseSubscription?.cancel();
+    _purchaseSubscription = _iap.purchaseStream.listen(
+      (purchases) => _handlePurchaseUpdates(purchases, onPurchaseGranted),
+      onError: (Object error, StackTrace stackTrace) {
+        debugPrint('VIP purchase stream error: $error');
       },
-      onDone: () {
-        _subscription?.cancel();
-      },
-      onError: (error) {
-        debugPrint('IAP Stream Error: $error');
-      },
+      onDone: () => _purchaseSubscription?.cancel(),
     );
-    _queryProducts();
+    await queryProducts();
   }
 
-  Future<void> _queryProducts() async {
-    _isAvailable = await _iap.isAvailable();
-    if (!_isAvailable) return;
+  Future<void> queryProducts() async {
+    _storeError = null;
+    _storeAvailable = await _iap.isAvailable();
+    if (!_storeAvailable) {
+      _products = const [];
+      _storeError = 'Google Play Billing is unavailable on this device.';
+      return;
+    }
 
-    final response = await _iap.queryProductDetails(_productIds);
-    if (response.error == null) {
-      _products = response.productDetails;
-    } else {
-      debugPrint('Error querying products: ${response.error}');
+    final response = await _iap.queryProductDetails(productIds);
+    if (response.error != null) {
+      _products = const [];
+      _storeError = response.error!.message;
+      debugPrint('VIP product query failed: ${response.error}');
+      return;
+    }
+
+    _products = response.productDetails;
+    if (response.notFoundIDs.isNotEmpty) {
+      _storeError = 'VIP products are not configured in Google Play yet.';
+      debugPrint('Missing VIP product IDs: ${response.notFoundIDs.join(', ')}');
     }
   }
 
-  Future<bool> buyProduct(ProductDetails product) async {
-    final purchaseParam = PurchaseParam(productDetails: product);
-    return await _iap.buyConsumable(purchaseParam: purchaseParam);
+  ProductDetails? productFor(String productId) {
+    for (final product in _products) {
+      if (product.id == productId) return product;
+    }
+    return null;
   }
 
-  void _listenToPurchaseUpdated(
-    List<PurchaseDetails> purchaseDetailsList,
-    Function(PurchaseDetails) onPurchaseSuccess,
-  ) {
-    for (final purchaseDetails in purchaseDetailsList) {
-      if (purchaseDetails.status == PurchaseStatus.purchased ||
-          purchaseDetails.status == PurchaseStatus.restored) {
-        onPurchaseSuccess(purchaseDetails);
-        if (purchaseDetails.pendingCompletePurchase) {
-          _iap.completePurchase(purchaseDetails);
-        }
-      } else if (purchaseDetails.status == PurchaseStatus.error) {
-        debugPrint('Purchase error: ${purchaseDetails.error}');
+  Future<bool> buy(ProductDetails product) {
+    // Google Play uses the non-consumable purchase path for subscriptions.
+    return _iap.buyNonConsumable(purchaseParam: PurchaseParam(productDetails: product));
+  }
+
+  Future<void> restorePurchases() => _iap.restorePurchases();
+
+  Future<void> _handlePurchaseUpdates(
+    List<PurchaseDetails> purchases,
+    ValueChanged<PurchaseDetails> onPurchaseGranted,
+  ) async {
+    for (final purchase in purchases) {
+      switch (purchase.status) {
+        case PurchaseStatus.pending:
+          debugPrint('VIP purchase pending: ${purchase.productID}');
+          break;
+        case PurchaseStatus.purchased:
+        case PurchaseStatus.restored:
+          // TODO(backend): validate purchase.verificationData before this call.
+          onPurchaseGranted(purchase);
+          break;
+        case PurchaseStatus.error:
+          debugPrint('VIP purchase failed: ${purchase.error}');
+          break;
+        case PurchaseStatus.canceled:
+          debugPrint('VIP purchase cancelled: ${purchase.productID}');
+          break;
+      }
+
+      if (purchase.pendingCompletePurchase) {
+        await _iap.completePurchase(purchase);
       }
     }
   }
 
-  void dispose() {
-    _subscription?.cancel();
+  Future<void> dispose() async {
+    await _purchaseSubscription?.cancel();
+    _purchaseSubscription = null;
   }
 }
