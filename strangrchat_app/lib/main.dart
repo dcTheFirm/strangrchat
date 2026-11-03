@@ -1,20 +1,20 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_windowmanager/flutter_windowmanager.dart';
-import '../app/theme.dart';
-import '../app/router.dart';
+import 'app/theme.dart';
+import 'app/router.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
   // Enforce FLAG_SECURE globally to block screenshots and screen recordings on Android
   try {
-    //await FlutterWindowManager.addFlags(FlutterWindowManager.FLAG_SECURE);
+    await FlutterWindowManager.addFlags(FlutterWindowManager.FLAG_SECURE);
   } catch (e) {
     debugPrint('FLAG_SECURE could not be set (non-Android platform or error): $e');
   }
 
-  runApp(const StrangrChatApp());
+  runApp(const ProviderScope(child: StrangrChatApp()));
 }
 
 class StrangrChatApp extends StatelessWidget {
@@ -30,4 +30,5 @@ class StrangrChatApp extends StatelessWidget {
     );
   }
 }
+
 

@@ -6,14 +6,15 @@
 // tree, read text, and verify that the values of widget properties are correct.
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:strangrchat_app/main.dart';
 
 void main() {
   testWidgets('Onboarding 18+ verification smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const StrangrChatApp());
+    // Build our app wrapped in ProviderScope and trigger a frame.
+    await tester.pumpWidget(const ProviderScope(child: StrangrChatApp()));
 
     // Verify onboarding screen is shown with 18+ checkbox.
     expect(find.text('StrangrChat'), findsOneWidget);
@@ -28,9 +29,12 @@ void main() {
     await tester.tap(find.text('I agree to strict UGC Terms & Zero Tolerance for harassment or illegal content.'));
     await tester.pump();
 
-    // Verify button is enabled and tappable
+    // Verify button is enabled and tappable, leading to Home screen
     await tester.tap(startButtonFinder);
-    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(find.text('StrangrChat Matchmaking'), findsOneWidget);
   });
 }
+
 

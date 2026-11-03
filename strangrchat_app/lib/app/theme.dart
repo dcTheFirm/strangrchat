@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 class AppTheme {
   // Brand Color Tokens
   static const Color primaryCoral = Color(0xFFFF6B61);
-  static const Color deepPlum = Color(0X4A234F);
+  static const Color deepPlum = Color(0xFF4A234F);
   static const Color warmIvory = Color(0xFFFFF9F5);
   static const Color softBlush = Color(0xFFFCE8E4);
   static const Color mainText = Color(0xFF29232D);

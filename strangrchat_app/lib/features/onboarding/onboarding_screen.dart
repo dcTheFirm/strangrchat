@@ -72,44 +72,50 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 ),
                 child: Column(
                   children: [
-                    CheckboxListTile(
-                      value: _is18PlusChecked,
-                      onChanged: (val) {
-                        setState(() {
-                          _is18PlusChecked = val ?? false;
-                        });
-                      },
-                      activeColor: AppTheme.primaryCoral,
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text(
-                        'I confirm that I am at least 18 years old.',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.mainText,
+                    Material(
+                      color: Colors.transparent,
+                      child: CheckboxListTile(
+                        value: _is18PlusChecked,
+                        onChanged: (val) {
+                          setState(() {
+                            _is18PlusChecked = val ?? false;
+                          });
+                        },
+                        activeColor: AppTheme.primaryCoral,
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text(
+                          'I confirm that I am at least 18 years old.',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.mainText,
+                          ),
                         ),
+                        controlAffinity: ListTileControlAffinity.leading,
                       ),
-                      controlAffinity: ListTileControlAffinity.leading,
                     ),
                     const Divider(height: 1, color: AppTheme.border),
-                    CheckboxListTile(
-                      value: _isUgcTermsChecked,
-                      onChanged: (val) {
-                        setState(() {
-                          _isUgcTermsChecked = val ?? false;
-                        });
-                      },
-                      activeColor: AppTheme.primaryCoral,
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text(
-                        'I agree to strict UGC Terms & Zero Tolerance for harassment or illegal content.',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.mainText,
+                    Material(
+                      color: Colors.transparent,
+                      child: CheckboxListTile(
+                        value: _isUgcTermsChecked,
+                        onChanged: (val) {
+                          setState(() {
+                            _isUgcTermsChecked = val ?? false;
+                          });
+                        },
+                        activeColor: AppTheme.primaryCoral,
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text(
+                          'I agree to strict UGC Terms & Zero Tolerance for harassment or illegal content.',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.mainText,
+                          ),
                         ),
+                        controlAffinity: ListTileControlAffinity.leading,
                       ),
-                      controlAffinity: ListTileControlAffinity.leading,
                     ),
                   ],
                 ),
@@ -120,13 +126,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ElevatedButton(
                 onPressed: _canProceed
                     ? () {
-                        // In future phases, navigate to home/filters
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Age & Terms Verified! Ready for Phase 4.'),
-                            backgroundColor: AppTheme.primaryCoral,
-                          ),
-                        );
+                        context.go('/home');
                       }
                     : null,
                 style: ElevatedButton.styleFrom(

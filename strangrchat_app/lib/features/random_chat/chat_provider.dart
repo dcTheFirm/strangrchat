@@ -41,21 +41,20 @@ class ChatState {
   }
 }
 
-class ChatNotifier extends StateNotifier<ChatState> {
-  ChatNotifier() : super(ChatState()) {
+class ChatNotifier extends Notifier<ChatState> {
+  @override
+  ChatState build() {
     // Simulate finding a partner after 3 seconds for UI demonstration
     Future.delayed(const Duration(seconds: 3), () {
-      if (mounted) {
-        state = state.copyWith(isSearching: false, isConnected: true);
-        // Add a welcome message from stranger
-        addMessage(ChatMessage(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          text: 'Hey there! Nice to connect with you anonymously.',
-          isMe: false,
-          timestamp: DateTime.now(),
-        ));
-      }
+      state = state.copyWith(isSearching: false, isConnected: true);
+      addMessage(ChatMessage(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        text: 'Hey there! Nice to connect with you anonymously.',
+        isMe: false,
+        timestamp: DateTime.now(),
+      ));
     });
+    return ChatState();
   }
 
   void addMessage(ChatMessage message) {
@@ -64,21 +63,19 @@ class ChatNotifier extends StateNotifier<ChatState> {
 
   void skipPartner() {
     state = ChatState(isSearching: true, isConnected: false, messages: []);
-    // Simulate re-matching after 3 seconds
     Future.delayed(const Duration(seconds: 3), () {
-      if (mounted) {
-        state = state.copyWith(isSearching: false, isConnected: true);
-        addMessage(ChatMessage(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          text: 'Connected to a new stranger!',
-          isMe: false,
-          timestamp: DateTime.now(),
-        ));
-      }
+      state = state.copyWith(isSearching: false, isConnected: true);
+      addMessage(ChatMessage(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        text: 'Connected to a new stranger!',
+        isMe: false,
+        timestamp: DateTime.now(),
+      ));
     });
   }
 }
 
-final chatProvider = StateNotifierProvider<ChatNotifier, ChatState>(
-  (ref) => ChatNotifier(),
+final chatProvider = NotifierProvider<ChatNotifier, ChatState>(
+  ChatNotifier.new,
 );
+

@@ -32,8 +32,9 @@ class MatchFilterState {
   }
 }
 
-class MatchFilterNotifier extends StateNotifier<MatchFilterState> {
-  MatchFilterNotifier() : super(MatchFilterState());
+class MatchFilterNotifier extends Notifier<MatchFilterState> {
+  @override
+  MatchFilterState build() => MatchFilterState();
 
   void setIntent(String intent) => state = state.copyWith(intent: intent);
   void setCity(String city) => state = state.copyWith(city: city);
@@ -51,6 +52,7 @@ class MatchFilterNotifier extends StateNotifier<MatchFilterState> {
   }
 }
 
-final matchFilterProvider = StateNotifierProvider<MatchFilterNotifier, MatchFilterState>(
-  (ref) => MatchFilterNotifier(),
+final matchFilterProvider = NotifierProvider<MatchFilterNotifier, MatchFilterState>(
+  MatchFilterNotifier.new,
 );
+
