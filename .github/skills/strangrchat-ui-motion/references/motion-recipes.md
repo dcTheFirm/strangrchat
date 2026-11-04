@@ -6,7 +6,7 @@ Starting points, not drop-in guarantees. Run `flutter analyze` and check package
 1. Packages and assets
 2. Tokens: Motion, Haptics, reduced motion, MotionQuality
 3. PressableScale and SageButton
-4. The Orb (idle, searching, match)
+4. The supporting Orb (searching and match)
 5. Circular-reveal route (Home to Chat)
 6. Searching ripples and rotating copy
 7. Match-found choreography
@@ -27,9 +27,9 @@ dependencies:
 
 flutter:
   fonts:
-    - family: Bricolage
+    - family: CormorantGaramond
       fonts:
-        - asset: assets/fonts/BricolageGrotesque-Variable.ttf   # verify licence and file name
+        - asset: assets/fonts/CormorantGaramond-Variable.ttf   # verify licence and file name
     - family: Figtree
       fonts:
         - asset: assets/fonts/Figtree-Variable.ttf               # verify licence and file name
@@ -137,21 +137,21 @@ class _PressableScaleState extends State<PressableScale> with SingleTickerProvid
 }
 ```
 
-`SageButton`: a `PressableScale` around a `DecoratedBox` with a flat forest-green fill (`#355E45`), radius full, `onPrimary` label (Figtree 16/600). Keep the shape and feedback tactile, not glossy. Disabled: `surfaceHigh` fill and `textMuted` label, with an `AnimatedContainer` (`Motion.base`) between states. Loading: `AnimatedSwitcher` swaps the label for a 20 px spinner in `onPrimary`. Wrap in `Semantics(button: true, label: ...)`.
+`SageButton`: a `PressableScale` around a `DecoratedBox` with the flat deep-forest fill (`forest`), restrained radius (not necessarily pill-shaped), `onForest` label (Figtree 16/600). Disabled: `surfaceHigh` fill and `textMuted` label, with an `AnimatedContainer` (`Motion.base`) between states. Loading: `AnimatedSwitcher` swaps the label for a 20 px spinner in `onForest`. Wrap in `Semantics(button: true, label: ...)`.
 
 ## 4. The Orb
 
-One painter, driven by one controller, three modes. Keep it in its own `RepaintBoundary`. Use a restrained sage gradient and faint halo; never use neon or high-saturation glow. Suggested light-theme colours: sage `#7E9C80`, light sage `#B8CEB8`; drive both from theme tokens in production and keep `glowAlpha` subtle (about 0.08–0.14).
+One painter, driven by one controller, three modes. Keep it in its own `RepaintBoundary`.
 
 ```dart
 enum OrbMode { idle, searching, matched }
 
 class OrbPainter extends CustomPainter {
-  OrbPainter({required this.t, required this.mode, required this.sage, required this.sageLight, required this.glowAlpha})
+  OrbPainter({required this.t, required this.mode, required this.sage, required this.sageSoft, required this.glowAlpha})
       : super(repaint: t);
   final Animation<double> t; // 0..1 looping
   final OrbMode mode;
-  final Color sage, sageLight;
+  final Color sage, sageSoft;
   final double glowAlpha;
 
   @override
@@ -165,7 +165,7 @@ class OrbPainter extends CustomPainter {
           .createShader(Rect.fromCircle(center: c, radius: r * 1.9 * breathe)));
     // body
     canvas.drawCircle(c, r * breathe, Paint()
-      ..shader = LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [sageLight, sage])
+      ..shader = LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [sageSoft, sage])
           .createShader(Rect.fromCircle(center: c, radius: r)));
     if (mode == OrbMode.searching) {
       for (var i = 0; i < 3; i++) {
@@ -179,13 +179,13 @@ class OrbPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(OrbPainter old) => old.mode != mode || old.sage != sage || old.sageLight != sageLight || old.glowAlpha != glowAlpha;
+  bool shouldRepaint(OrbPainter old) => old.mode != mode || old.sage != sage || old.sageSoft != sageSoft || old.glowAlpha != glowAlpha;
 }
 ```
 
 Add `import 'dart:math' as math;`. Lite tier: skip the glow gradient shader (use a flat translucent circle) and use 2 rings. Minimal tier: static orb, no loop (do not start the controller).
 
-Usage: a controller `..repeat(period: const Duration(milliseconds: 4000))` for idle, 2400 ms for searching; change the period when mode changes (`controller.duration = ...; controller.repeat()`). Home's Orb is wrapped in `PressableScale` with `scale: 0.9`.
+Usage: a controller `..repeat(period: const Duration(milliseconds: 4000))` for idle, 2400 ms for searching; change the period when mode changes (`controller.duration = ...; controller.repeat()`). Do not make the Orb the Home primary CTA; the Home screen follows the editorial headline + Start a random chat CTA. Use the Orb as a supporting searching/matching visual.
 
 ## 5. Circular-reveal route (Home to Chat)
 
@@ -222,7 +222,7 @@ class _CircleReveal extends CustomClipper<Path> {
 }
 ```
 
-Capture the Orb centre with a `GlobalKey` before `context.push('/chat', extra: origin)` and read `state.extra` in the route's `pageBuilder`. When `context.reduceMotion` is true, use `FadeThroughTransition` instead.
+Capture the primary CTA centre (or use a simple fade-through) with a `GlobalKey` before `context.push('/chat', extra: origin)` and read `state.extra` in the route's `pageBuilder`. When `context.reduceMotion` is true, use `FadeThroughTransition` instead.
 
 ## 6. Searching ripples and rotating copy
 
@@ -266,8 +266,8 @@ One controller, `Interval`s, tap to skip.
 
 ```dart
 class MatchReveal extends StatefulWidget {
-  const MatchReveal({super.key, required this.me, required this.them, required this.onDone});
-  final Color me, them; final VoidCallback onDone;
+  const MatchReveal({super.key, required this.meStickerId, required this.themStickerId, required this.onDone});
+  final String meStickerId, themStickerId; final VoidCallback onDone;
   @override
   State<MatchReveal> createState() => _MatchRevealState();
 }
@@ -298,9 +298,19 @@ class _MatchRevealState extends State<MatchReveal> with SingleTickerProviderStat
           builder: (_, __) {
             final d = 90 * (1 - slide.value); // distance from centre
             return Stack(alignment: Alignment.center, children: [
-              Opacity(opacity: glow.value, child: _Glow(color: widget.me)),
-              Transform.translate(offset: Offset(-d - 36, 0), child: AvatarOrb(color: widget.me)),
-              Transform.translate(offset: Offset(d + 36, 0), child: AvatarOrb(color: widget.them)),
+              Opacity(
+                opacity: glow.value,
+                child: Container(
+                  width: 180,
+                  height: 180,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Theme.of(context).colorScheme.secondary.withValues(alpha: .10),
+                  ),
+                ),
+              ),
+              Transform.translate(offset: Offset(-d - 36, 0), child: StickerAvatar(stickerId: widget.meStickerId)),
+              Transform.translate(offset: Offset(d + 36, 0), child: StickerAvatar(stickerId: widget.themStickerId)),
               Positioned(bottom: 0, child: Opacity(opacity: text.value, child: const Text('Connected'))),
             ]);
           },
@@ -309,7 +319,7 @@ class _MatchRevealState extends State<MatchReveal> with SingleTickerProviderStat
 }
 ```
 
-`AvatarOrb` is a small painter: a gradient circle seeded from a hash of the room id (generated on device, never stored). `_Glow` is a radial gradient. Announce "Connected to a stranger" with `SemanticsService.announce`.
+`StickerAvatar` uses the stable profile sticker asset ID for each participant; it is not a generated face or a randomly chosen asset on each rebuild. Keep the match highlight as a small sage tint, not a large glowing gradient. Announce "Connected to a stranger" with `SemanticsService.announce`.
 
 ## 8. Chat motion
 
@@ -364,7 +374,7 @@ class _TypingDotsState extends State<TypingDots> with SingleTickerProviderStateM
 }
 ```
 
-Send button: `AnimatedContainer` fill from muted to forest green when the field has text; on send, a quick scale bounce (`PressableScale` with `scale: .85`) and the sent forest-green bubble enters. Profanity warning: an inline banner above the composer that slides down 8 px and shakes horizontally once (`TweenAnimationBuilder` with a damped sine) tinted `danger`.
+Send button: `AnimatedContainer` fill from muted to forest when the field has text; on send, a quick scale bounce (`PressableScale` with `scale: .85`) and the sent bubble enters. Profanity warning: an inline banner above the composer that slides down 8 px and shakes horizontally once (`TweenAnimationBuilder` with a damped sine) tinted `danger`.
 
 ## 9. Two-tap Skip with ring countdown
 
@@ -414,11 +424,11 @@ class _SkipCapsuleState extends State<SkipCapsule> with SingleTickerProviderStat
 }
 ```
 
-Draw the countdown ring as a `CustomPaint` stroke in a muted sage tone, sweeping with `c.value` around the capsule. Add `Semantics(button: true, label: armed ? 'Confirm skip' : 'Skip to next stranger')`.
+Draw the countdown ring as a `CustomPaint` stroke sweeping with `c.value` around the capsule. Add `Semantics(button: true, label: armed ? 'Confirm skip' : 'Skip to next stranger')`.
 
 ## 10. Chat-ended dissolve
 
-Use a calm, soft fade rather than a flame or fire metaphor. Stagger bubbles from last to first: opacity 1 to 0, translateY 0 to -24, scale 1 to .96, 40 ms offsets, 500 ms each, with `flutter_animate`:
+Stagger bubbles from last to first: opacity 1 to 0, translateY 0 to -24, scale 1 to .96, 40 ms offsets, 500 ms each, with `flutter_animate`:
 
 ```dart
 bubble.animate(delay: (40 * indexFromEnd).ms)
@@ -427,7 +437,7 @@ bubble.animate(delay: (40 * indexFromEnd).ms)
       .scaleXY(end: .96, duration: 500.ms);
 ```
 
-Do not blur each bubble (expensive). If you want blur, apply one `ImageFiltered` to the whole list for the last 300 ms, and only on the full tier. After the gentle fade, clear the messages from state and show the end panel ("Chat ended. Nothing was saved.") with a `Find next` SageButton and an optional Add friend ghost button.
+Do not blur each bubble (expensive). If you want blur, apply one `ImageFiltered` to the whole list for the last 300 ms, and only on the full tier. After the dissolve, clear the messages from state and show the end panel ("Chat ended. Nothing was saved.") with a `Find next` SageButton and an optional Add friend ghost button.
 
 ## 11. Sliding selector (intent, VIP plans)
 
@@ -469,7 +479,7 @@ Four labels like "Relationship" may be too wide for equal columns; if so, make t
 
 ## 12. Toasts instead of SnackBars
 
-Use an `OverlayEntry` host (or a package-free `ToastHost` widget above the router) that shows a top pill: slide down 16 px plus fade with a spring, auto-dismiss at 2.4 s, swipe up to dismiss, one at a time with a queue. Variants: info (surface plus outline), success (deep green), danger (danger colour with icon). Always an icon plus text, never colour alone. Announce with `SemanticsService.announce`.
+Use an `OverlayEntry` host (or a package-free `ToastHost` widget above the router) that shows a top pill: slide down 16 px plus fade with a spring, auto-dismiss at 2.4 s, swipe up to dismiss, one at a time with a queue. Variants: info (surface plus outline), success (mint), danger (danger colour with icon). Always an icon plus text, never colour alone. Announce with `SemanticsService.announce`.
 
 ## 13. Skeleton shimmer
 
@@ -496,3 +506,73 @@ if (!allowScreenshots) {
 ```
 
 Run with `flutter run --dart-define=ALLOW_SCREENSHOTS=true` for design review only. Never set it in release builds or CI release pipelines.
+
+
+## 15. Notification bell and inbox
+
+The bell itself should be quiet until it has unread activity. Keep the badge small and aligned to the top-right; use a semantic label such as `Notifications, 3 unread`.
+
+```dart
+class NotificationBell extends StatelessWidget {
+  const NotificationBell({super.key, required this.unreadCount, required this.onTap});
+  final int unreadCount;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Semantics(
+      button: true,
+      label: unreadCount == 0 ? 'Notifications' : 'Notifications, $unreadCount unread',
+      child: IconButton(
+        tooltip: 'Notifications',
+        onPressed: onTap,
+        icon: Badge(
+          isLabelVisible: unreadCount > 0,
+          label: Text(unreadCount > 99 ? '99+' : '$unreadCount'),
+          child: const Icon(Icons.notifications_none_rounded),
+        ),
+      ),
+    );
+  }
+}
+```
+
+Inbox motion: on wide layouts, slide the panel in from the right over a dimmed scrim (about 220–280 ms); on phones, use a modal bottom sheet or full-screen route with a short fade/slide. Animate each unread marker only when its read state changes. Rows may enter with a subtle 20–30 ms stagger on first load, but do not continuously animate the badge. `Mark all as read` should show loading and confirmed/error states; do not optimistically erase unread markers unless the data layer supports rollback.
+
+Use actual event types only (friend request, message request, new match, subscription status, expiry reminder when supported). Do not show private message text in the notification row or push preview. This section defines UI motion only; the event contract, inbox persistence, read endpoint, and push routing must be confirmed with the backend first.
+
+## 16. Stable sticker avatars
+
+Profile identity is a bundled goofy sticker, never a user portrait. The sticker ID is assigned once during profile creation and read from profile state everywhere.
+
+```dart
+class StickerAvatar extends StatelessWidget {
+  const StickerAvatar({super.key, required this.stickerId, this.size = 48});
+  final String stickerId;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final sticker = StickerAssets.byId(stickerId); // deterministic lookup; no random call here
+    return Semantics(
+      image: true,
+      label: 'Profile sticker: ${sticker.accessibleName}',
+      child: SizedBox(
+        width: size,
+        height: size,
+        child: Image.asset(sticker.assetPath, fit: BoxFit.contain),
+      ),
+    );
+  }
+}
+```
+
+A tiny one-time scale/fade on first display is enough. Do not rotate, shuffle, or reassign the sticker on rebuild, tab change, app restart, or notification refresh. Use a local, licensed asset pack. Keep chat-image handling separate: chat images remain ephemeral and must not become profile avatars.
+
+## 17. Matching filter interactions
+
+- There is no distance/radius control. Do not animate or render a radius slider, nearby chip, kilometre value, or “increase distance” prompt.
+- The replacement control is a compact Same country switch. Animate its thumb/fill with `Motion.base`; the label and semantic value must announce enabled/disabled. Do not trigger GPS permission.
+- Female gender-filter usage may show a small text count such as “3 free uses left” when the server provides it. Keep the counter static; no count-up gimmick. On exhaustion, transition to the subscription explanation with a simple fade/slide. Do not invent a reset timer or locally decrement a count unless the server contract explicitly says when a use is consumed.
+- If the remaining allowance or Same country enforcement is not available from the service, keep the UI in an explicit unavailable/coming-soon state only if the product owner approves it; do not imply the feature is active.

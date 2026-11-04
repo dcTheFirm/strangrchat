@@ -85,18 +85,14 @@ Present: `flutter_riverpod ^3.4.3`, `go_router ^18.1.2`, `dio`, `socket_io_clien
 Absent (suggest adding, verifying current versions on pub.dev): `flutter_animate`, `animations` (official transitions), optional `lottie` (bundled assets only) or `rive` for one signature illustration. Fonts are bundled assets, not a package.
 
 
-## 8. Approved visual direction: Milky Sage (design target)
+## 8. New product and visual requirements supplied on 4 Nov 2026
 
-This section records the approved direction for future UI work. It is a design target, not evidence that the Flutter implementation has already changed. The findings above remain a snapshot of the repository cloned on 4 Nov 2026; re-run the checks before relying on them.
+The following are product/design decisions from the user and screenshot review, not claims that the repository already implements them. Re-check the current branch and backend before coding.
 
-- **Overall feel:** premium, calm, organic, minimal, light, and milky.
-- **Canvas and surfaces:** warm off-white page background; milky white cards and sheets; subtle sage-tinted borders.
-- **Accent and actions:** muted sage for selected states and illustration details; deep forest green for primary buttons, sent chat bubbles, and high-priority actions.
-- **Orb:** soft sage gradient with a faint ambient halo; no coral, plum, neon, or loud glow.
-- **Typography:** retain the bundled Bricolage Grotesque display / Figtree UI pairing proposed in the skill, subject to font licence and asset verification.
-- **Motion:** preserve the existing motion recipes, but tune them to feel soft and purposeful. Prefer restrained breathing, gentle ripple rings, spring press feedback, and a calm chat-end fade. Do not add decorative particles or constant motion without a clear purpose.
-- **Surface discipline:** keep buttons, cards, and chat bubbles mostly flat. Reserve the most dimensional treatment for the Orb and its match transition.
-- **Accessibility:** use deep forest green with white text for light-theme primary actions; test all foreground/background pairs at implementation time. Use a stronger outline for interactive boundaries where needed, and keep danger visually distinct from brand/success.
-- **Theme:** light-first. A matching dark theme may be supported, but it must not dilute the approved light, milky visual direction.
+- **Visual reference:** editorial “stranger lounge” structure: warm paper canvas, large expressive serif headlines, restrained sans-serif navigation/body, thin separators, spacious page layouts, simple strong actions, horizontally separated friend rows, three-tier subscription comparison, clean profile settings, and a right-side notifications inbox on wide layouts. Apply the approved Milky Sage theme (warm off-white, milky surfaces, muted sage, deep forest actions) rather than copying the screenshot's sample brand.
+- **Notifications:** add a top-bar notification bell and an inbox covering real product events, especially new friend requests and new message requests. The screenshot also shows match, subscription/trial, friend-saved, and chat-expiry notice patterns; show these only if those event sources exist. Confirm unread/read state, mark-all-read, push delivery, and route contracts before promising these actions. Never expose private chat message text in notification previews.
+- **Country filter:** remove distance/radius/nearby matching and replace it with a Same country preference. The current audit identified a city plus radius UI; re-check whether it still exists. Country matching must be server-enforced using a trusted country value; do not request GPS or show precise location.
+- **Female gender filter:** the Female match filter is intended to have three free uses and require subscription afterward. Reset cadence and when a use is consumed were not specified. Do not invent either; use a server-owned remaining-use/entitlement value or request the missing backend contract.
+- **Sticker identity:** every new profile should receive a random goofy app-owned sticker instead of a real-person profile photo. Assign it once and keep its sticker ID stable across the app; do not reroll it on rebuild. The sticker asset key is profile metadata, distinct from ephemeral chat media. Remove profile-photo affordances, but do not remove image support used for ephemeral chat unless separately requested.
 
-The `#FF6B61` contrast measurements and coral/error-colour findings in section 5 refer only to the historical repository snapshot above; they are not Milky Sage tokens.
+The five screenshots are visual references only: do not copy the “Kindred” wordmark, human portraits, sample people/messages, or displayed dollar prices. Keep StrangrChat branding and actual product/store data.
