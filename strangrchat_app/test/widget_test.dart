@@ -31,10 +31,9 @@ void main() {
 
     // Verify button is enabled and tappable, leading to Home screen
     await tester.tap(startButtonFinder);
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 600));
 
-    expect(find.text('Smart Match'), findsOneWidget);
+    expect(find.text('Ready when you are'), findsOneWidget);
   });
 }
-
 
