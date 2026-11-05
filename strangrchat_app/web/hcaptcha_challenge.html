@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>hCaptcha verification</title>
+    <style>
+      body {
+        color: #211c1b;
+        font: 15px system-ui, sans-serif;
+        margin: 12px;
+      }
+
+      #status {
+        color: #786f6d;
+        min-height: 1.4em;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="captcha"></div>
+    <p id="status" role="status"></p>
+    <script>
+      const status = document.getElementById('status');
+      const sitekey = new URLSearchParams(location.search).get('sitekey');
+
+      function notifyParent(message) {
+        parent.postMessage(message, location.origin);
+      }
+
+      function hcaptchaReady() {
+        if (!sitekey) {
+          status.textContent = 'Verification is not configured for this build.';
+          notifyParent('hcaptcha-error');
+          return;
+        }
+
+        try {
+          hcaptcha.render('captcha', {
+            sitekey,
+            callback: (token) => notifyParent(`hcaptcha-token:${token}`),
+            'expired-callback': () => notifyParent('hcaptcha-expired'),
+            'error-callback': () => {
+              status.textContent =
+                'Verification could not be completed. Please try again.';
+              notifyParent('hcaptcha-error');
+            },
+          });
+        } catch {
+          status.textContent =
+            'Verification could not be loaded. Please try again.';
+          notifyParent('hcaptcha-error');
+        }
+      }
+
+      window.hcaptchaOnLoad = hcaptchaReady;
+      const script = document.createElement('script');
+      script.src =
+        'https://js.hcaptcha.com/1/api.js?onload=hcaptchaOnLoad&render=explicit';
+      script.async = true;
+      script.defer = true;
+      script.onerror = () => {
+        status.textContent =
+          'Verification could not be loaded. Check your connection and try again.';
+        notifyParent('hcaptcha-error');
+      };
+      document.head.appendChild(script);
+    </script>
+  </body>
+</html>

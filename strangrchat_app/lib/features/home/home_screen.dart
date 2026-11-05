@@ -4,8 +4,10 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../app/sticker_avatar.dart';
 import '../../app/tokens.dart';
 import '../friends/friends_list_screen.dart';
 import '../random_chat/chat_provider.dart';
@@ -20,18 +22,6 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
-  static const _cities = [
-    nearbyCityOption,
-    'Mumbai',
-    'Delhi',
-    'Bengaluru',
-    'Hyderabad',
-    'Chennai',
-    'Kolkata',
-    'Pune',
-    'Ahmedabad',
-  ];
-
   int _selectedTab = 0;
   bool _showVipNudge = true;
 
@@ -39,13 +29,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     HapticFeedback.mediumImpact();
     final filters = ref.read(matchFilterProvider);
     unawaited(
-      ref
-          .read(chatProvider.notifier)
-          .joinQueue(
-            intent: filters.intent,
-            preferredGender: filters.gender,
-            city: filters.city,
-          ),
+      ref.read(chatProvider.notifier).joinQueue(intent: filters.intent),
     );
     context.push('/chat');
   }
@@ -104,44 +88,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ],
                     ),
                   ),
-                  Semantics(
-                    button: true,
-                    label: 'Safety information',
-                    child: Material(
-                      color: AppTokens.surface,
-                      shape: const StadiumBorder(
-                        side: BorderSide(color: AppTokens.outlineStrong),
-                      ),
-                      child: InkWell(
-                        customBorder: const StadiumBorder(),
-                        onTap: _showSafetyInfo,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppTokens.space12,
-                            vertical: AppTokens.space8,
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.shield_outlined,
-                                size: 18,
-                                color: AppTokens.forest,
-                              ),
-                              const SizedBox(width: AppTokens.space8),
-                              Text(
-                                'Safety',
-                                style: Theme.of(context).textTheme.labelLarge
-                                    ?.copyWith(
-                                      color: AppTokens.forest,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
+                  _NotificationButton(
+                    onPressed: () => context.push('/notifications'),
+                  ),
+                  const SizedBox(width: AppTokens.space8),
+                  IconButton(
+                    tooltip: 'Safety information',
+                    onPressed: _showSafetyInfo,
+                    style: IconButton.styleFrom(
+                      backgroundColor: AppTokens.surface,
+                      foregroundColor: AppTokens.coralDeep,
                     ),
+                    icon: const Icon(Icons.shield_outlined),
+                  ),
+                  const SizedBox(width: AppTokens.space8),
+                  IconButton(
+                    tooltip: 'Membership options',
+                    onPressed: () => context.push('/vip'),
+                    style: IconButton.styleFrom(
+                      backgroundColor: AppTokens.surface,
+                      foregroundColor: AppTokens.coralDeep,
+                    ),
+                    icon: const Icon(Icons.workspace_premium_rounded),
                   ),
                 ],
               ),
@@ -172,6 +140,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         onStart: _startMatching,
       ),
     );
+  }
+}
+
+class _NotificationButton extends StatelessWidget {
+  const _NotificationButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    return IconButton(
+          tooltip: 'Notifications',
+          onPressed: onPressed,
+          style: IconButton.styleFrom(
+            backgroundColor: AppTokens.surface,
+            foregroundColor: AppTokens.coralDeep,
+          ),
+          icon: const Icon(Icons.notifications_none_rounded),
+        )
+        .animate(autoPlay: !reduceMotion)
+        .shake(duration: 420.ms, hz: 6, rotation: 0.06);
   }
 }
 
@@ -318,14 +308,13 @@ class _PillNavigation extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final itemWidth = constraints.maxWidth / 2;
+        final itemWidth = (constraints.maxWidth - AppTokens.space8) / 2;
         final reduceMotion = MediaQuery.disableAnimationsOf(context);
         return Container(
           padding: const EdgeInsets.all(AppTokens.space4),
           decoration: BoxDecoration(
-            color: AppTokens.surface,
+            color: AppTokens.navDark,
             borderRadius: BorderRadius.circular(AppTokens.radius28),
-            border: Border.all(color: AppTokens.outline),
           ),
           child: Stack(
             children: [
@@ -338,7 +327,7 @@ class _PillNavigation extends StatelessWidget {
                 width: itemWidth,
                 child: DecoratedBox(
                   decoration: BoxDecoration(
-                    color: AppTokens.sageSoft,
+                    color: AppTokens.coral,
                     borderRadius: BorderRadius.circular(AppTokens.radius28),
                   ),
                 ),
@@ -382,7 +371,7 @@ class _NavigationItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = selected ? AppTokens.forest : AppTokens.textMuted;
+    final color = selected ? AppTokens.ink : AppTokens.surface;
     final largeText = MediaQuery.textScalerOf(context).scale(1) >= 1.5;
     return Expanded(
       child: Semantics(
@@ -524,8 +513,7 @@ class _SmartMatchView extends ConsumerWidget {
       useSafeArea: true,
       isScrollControlled: true,
       backgroundColor: AppTokens.surface.withValues(alpha: 0),
-      builder: (context) =>
-          _MatchSettingsSheet(onVipRequired: () => context.push('/vip')),
+      builder: (context) => const _MatchSettingsSheet(),
     );
   }
 
@@ -536,18 +524,7 @@ class _SmartMatchView extends ConsumerWidget {
       'TIPS' => 'Life tips',
       _ => 'Friends',
     };
-    final gender = switch (filters.gender) {
-      'NON_BINARY' => 'Non-binary',
-      'MALE' => 'Men',
-      'FEMALE' => 'Women',
-      _ => 'Anyone',
-    };
-    final location = filters.city == nearbyCityOption ? 'Nearby' : filters.city;
-    final city = '$location · ${filters.radiusKm.toInt()} km';
-    final interests = filters.selectedHobbies.isEmpty
-        ? ''
-        : ' · ${filters.selectedHobbies.length} ${filters.selectedHobbies.length == 1 ? 'interest' : 'interests'}';
-    return '$intent · $gender · $city$interests';
+    return '$intent · preferences';
   }
 }
 
@@ -775,12 +752,38 @@ class _OrbState extends State<_Orb> with SingleTickerProviderStateMixin {
           scale: _pressed && !reduceMotion ? 0.94 : 1,
           duration: reduceMotion ? Duration.zero : AppTokens.fast,
           child: RepaintBoundary(
-            child: CustomPaint(
-              size: Size.square(widget.size),
-              painter: _OrbPainter(
-                progress: _controller,
-                sage: AppTokens.sage,
-                sageLight: AppTokens.sageLight,
+            child: SizedBox.square(
+              dimension: widget.size,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Positioned.fill(
+                    child: CustomPaint(
+                      painter: _OrbPainter(progress: _controller),
+                    ),
+                  ),
+                  StickerAvatar(variant: 0, size: widget.size * 0.34),
+                  Positioned(
+                    left: widget.size * 0.08,
+                    top: widget.size * 0.12,
+                    child: StickerAvatar(variant: 1, size: widget.size * 0.22),
+                  ),
+                  Positioned(
+                    right: widget.size * 0.08,
+                    top: widget.size * 0.16,
+                    child: StickerAvatar(variant: 2, size: widget.size * 0.22),
+                  ),
+                  Positioned(
+                    left: widget.size * 0.09,
+                    bottom: widget.size * 0.10,
+                    child: StickerAvatar(variant: 3, size: widget.size * 0.20),
+                  ),
+                  Positioned(
+                    right: widget.size * 0.08,
+                    bottom: widget.size * 0.09,
+                    child: StickerAvatar(variant: 1, size: widget.size * 0.20),
+                  ),
+                ],
               ),
             ),
           ),
@@ -791,32 +794,21 @@ class _OrbState extends State<_Orb> with SingleTickerProviderStateMixin {
 }
 
 class _OrbPainter extends CustomPainter {
-  _OrbPainter({
-    required this.progress,
-    required this.sage,
-    required this.sageLight,
-  }) : super(repaint: progress);
+  _OrbPainter({required this.progress}) : super(repaint: progress);
 
   final Animation<double> progress;
-  final Color sage;
-  final Color sageLight;
 
   @override
   void paint(Canvas canvas, Size size) {
     final center = size.center(Offset.zero);
-    final radius = size.shortestSide * 0.3;
-    final breathe =
-        1 + 0.04 * (0.5 - 0.5 * math.cos(progress.value * 2 * math.pi));
-    final orbRadius = radius * breathe;
-    final haloRadius = radius * 1.9;
-
+    final radius = size.shortestSide * 0.47;
+    final orbRadius =
+        size.shortestSide *
+        (0.44 + 0.012 * math.sin(progress.value * 2 * math.pi));
     canvas.drawCircle(
       center,
-      haloRadius,
-      Paint()
-        ..shader = RadialGradient(
-          colors: [sage.withValues(alpha: 0.13), sage.withValues(alpha: 0)],
-        ).createShader(Rect.fromCircle(center: center, radius: haloRadius)),
+      radius,
+      Paint()..color = AppTokens.blush.withValues(alpha: 0.48),
     );
     canvas.drawCircle(
       center,
@@ -825,46 +817,34 @@ class _OrbPainter extends CustomPainter {
         ..shader = LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [sageLight, sage],
+          colors: [AppTokens.peach, AppTokens.lavender],
         ).createShader(Rect.fromCircle(center: center, radius: orbRadius)),
     );
-    canvas.drawCircle(
-      center.translate(-orbRadius * 0.2, -orbRadius * 0.28),
-      orbRadius * 0.12,
-      Paint()..color = AppTokens.surface.withValues(alpha: 0.28),
-    );
+    final dotPaint = Paint()
+      ..color = AppTokens.coralDeep.withValues(alpha: 0.38)
+      ..isAntiAlias = true;
+    for (var index = 0; index < 32; index++) {
+      final angle = 2 * math.pi * index / 32 + progress.value * math.pi * 0.08;
+      final point =
+          center +
+          Offset(
+            math.cos(angle) * size.shortestSide * 0.37,
+            math.sin(angle) * size.shortestSide * 0.37,
+          );
+      canvas.drawCircle(point, size.shortestSide * 0.006, dotPaint);
+    }
   }
 
   @override
   bool shouldRepaint(_OrbPainter oldDelegate) =>
-      oldDelegate.sage != sage || oldDelegate.sageLight != sageLight;
+      oldDelegate.progress != progress;
 }
 
-class _MatchSettingsSheet extends ConsumerWidget {
-  const _MatchSettingsSheet({required this.onVipRequired});
-
-  final VoidCallback onVipRequired;
-
-  static const _genders = ['ANY', 'MALE', 'FEMALE', 'NON_BINARY'];
-  static const _hobbies = [
-    'Music',
-    'Movies',
-    'Cricket',
-    'Gaming',
-    'Travel',
-    'Reading',
-    'Fitness',
-    'Foodie',
-    'Tech',
-    'Art',
-  ];
+class _MatchSettingsSheet extends StatelessWidget {
+  const _MatchSettingsSheet();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final filters = ref.watch(matchFilterProvider);
-    final notifier = ref.read(matchFilterProvider.notifier);
-    final isVip = ref.watch(vipProvider).isActive;
-
+  Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
         color: AppTokens.surface,
@@ -903,255 +883,66 @@ class _MatchSettingsSheet extends ConsumerWidget {
               style: Theme.of(context).textTheme.bodyMedium,
             ),
             const SizedBox(height: AppTokens.space24),
-            _FilterSectionTitle(
-              title: 'Gender',
-              accessory: isVip ? null : 'VIP',
+            _PreferenceAvailability(
+              icon: Icons.wc_rounded,
+              title: 'Gender preferences',
+              message: 'These need server-side eligibility and Female-use allowance checks before they can be enabled.',
             ),
             const SizedBox(height: AppTokens.space12),
-            Wrap(
-              spacing: AppTokens.space8,
-              runSpacing: AppTokens.space8,
-              children: [
-                for (final gender in _genders)
-                  _FilterChip(
-                    label: _genderLabel(gender),
-                    selected: filters.gender == gender,
-                    locked: gender != 'ANY' && !isVip,
-                    onTap: () {
-                      HapticFeedback.selectionClick();
-                      if (!notifier.setGender(gender)) onVipRequired();
-                    },
-                  ),
-              ],
-            ),
-            const SizedBox(height: AppTokens.space24),
-            _FilterSectionTitle(title: 'City', accessory: isVip ? null : 'VIP'),
-            const SizedBox(height: AppTokens.space12),
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppTokens.space16,
-              ),
-              decoration: BoxDecoration(
-                color: AppTokens.surface,
-                borderRadius: BorderRadius.circular(AppTokens.radius20),
-                border: Border.all(color: AppTokens.outlineStrong),
-              ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<String>(
-                  value: filters.city,
-                  isExpanded: true,
-                  borderRadius: BorderRadius.circular(AppTokens.radius20),
-                  icon: const Icon(
-                    Icons.expand_more_rounded,
-                    color: AppTokens.forest,
-                  ),
-                  items: _HomeScreenState._cities
-                      .map(
-                        (city) => DropdownMenuItem(
-                          value: city,
-                          child: Row(
-                            children: [
-                              Expanded(child: Text(city)),
-                              if (city != nearbyCityOption && !isVip)
-                                const Icon(
-                                  Icons.lock_outline_rounded,
-                                  size: 16,
-                                  color: AppTokens.sage,
-                                ),
-                            ],
-                          ),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (city) {
-                    if (city != null && !notifier.setCity(city)) {
-                      onVipRequired();
-                    }
-                  },
-                ),
-              ),
-            ),
-            const SizedBox(height: AppTokens.space24),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Distance',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                ),
-                Text(
-                  '${filters.radiusKm.toInt()} km',
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: AppTokens.forest,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-            SliderTheme(
-              data: SliderTheme.of(context).copyWith(
-                activeTrackColor: AppTokens.forest,
-                inactiveTrackColor: AppTokens.sageSoft,
-                thumbColor: AppTokens.forest,
-                overlayColor: AppTokens.sage.withValues(alpha: 0.12),
-                trackHeight: 4,
-              ),
-              child: Slider(
-                value: filters.radiusKm,
-                min: 5,
-                max: 500,
-                divisions: 99,
-                onChanged: notifier.setRadius,
-                onChangeEnd: (_) => HapticFeedback.selectionClick(),
-              ),
+            _PreferenceAvailability(
+              icon: Icons.public_rounded,
+              title: 'Same country',
+              message:
+                  'Country matching is not enforced by the current queue yet.',
             ),
             const SizedBox(height: AppTokens.space16),
-            Text('Interests', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: AppTokens.space4),
             Text(
-              'Pick a few things you enjoy.',
+              'Conversation type is the only preference currently applied by matching.',
               style: Theme.of(context).textTheme.bodySmall,
-            ),
-            const SizedBox(height: AppTokens.space12),
-            Wrap(
-              spacing: AppTokens.space8,
-              runSpacing: AppTokens.space8,
-              children: [
-                for (final hobby in _hobbies)
-                  _FilterChip(
-                    label: hobby,
-                    selected: filters.selectedHobbies.contains(hobby),
-                    onTap: () {
-                      HapticFeedback.selectionClick();
-                      notifier.toggleHobby(hobby);
-                    },
-                  ),
-              ],
             ),
           ],
         ),
       ),
     );
   }
-
-  static String _genderLabel(String gender) => switch (gender) {
-    'ANY' => 'Anyone',
-    'NON_BINARY' => 'Non-binary',
-    _ => '${gender[0]}${gender.substring(1).toLowerCase()}',
-  };
 }
 
-class _FilterSectionTitle extends StatelessWidget {
-  const _FilterSectionTitle({required this.title, this.accessory});
+class _PreferenceAvailability extends StatelessWidget {
+  const _PreferenceAvailability({
+    required this.icon,
+    required this.title,
+    required this.message,
+  });
 
+  final IconData icon;
   final String title;
-  final String? accessory;
+  final String message;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Text(title, style: Theme.of(context).textTheme.titleMedium),
-        if (accessory != null) ...[
-          const SizedBox(width: AppTokens.space8),
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppTokens.space8,
-              vertical: AppTokens.space4,
-            ),
-            decoration: BoxDecoration(
-              color: AppTokens.sageSoft,
-              borderRadius: BorderRadius.circular(AppTokens.radius12),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
+    return Container(
+      padding: const EdgeInsets.all(AppTokens.space16),
+      decoration: BoxDecoration(
+        color: AppTokens.surfaceHigh,
+        borderRadius: BorderRadius.circular(AppTokens.radius16),
+        border: Border.all(color: AppTokens.line),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: AppTokens.coralDeep),
+          const SizedBox(width: AppTokens.space12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(
-                  Icons.lock_outline_rounded,
-                  size: 12,
-                  color: AppTokens.forest,
-                ),
-                const SizedBox(width: AppTokens.space4),
-                Text(
-                  accessory!,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: AppTokens.forest,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
+                Text(title, style: Theme.of(context).textTheme.titleSmall),
+                const SizedBox(height: AppTokens.space4),
+                Text(message, style: Theme.of(context).textTheme.bodySmall),
               ],
             ),
           ),
         ],
-      ],
-    );
-  }
-}
-
-class _FilterChip extends StatelessWidget {
-  const _FilterChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-    this.locked = false,
-  });
-
-  final String label;
-  final bool selected;
-  final bool locked;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
-    return Semantics(
-      button: true,
-      selected: selected,
-      label: locked ? '$label, VIP option' : label,
-      child: AnimatedScale(
-        scale: selected ? 1 : 0.98,
-        duration: reduceMotion ? Duration.zero : AppTokens.base,
-        curve: AppTokens.enter,
-        child: Material(
-          color: selected ? AppTokens.sageSoft : AppTokens.surface,
-          shape: RoundedRectangleBorder(
-            side: BorderSide(
-              color: selected ? AppTokens.outlineStrong : AppTokens.outline,
-            ),
-            borderRadius: BorderRadius.circular(AppTokens.radius12),
-          ),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(AppTokens.radius12),
-            onTap: onTap,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppTokens.space12,
-                vertical: AppTokens.space8,
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    label,
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: selected ? AppTokens.forest : AppTokens.text,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  if (locked) ...[
-                    const SizedBox(width: AppTokens.space4),
-                    const Icon(
-                      Icons.lock_outline_rounded,
-                      size: 14,
-                      color: AppTokens.sage,
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }
@@ -1188,7 +979,7 @@ class _VipNudge extends StatelessWidget {
               const SizedBox(width: AppTokens.space8),
               Expanded(
                 child: Text(
-                  'More ways to find your kind of conversation',
+                  'Explore membership options',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: AppTokens.text,
                     fontWeight: FontWeight.w600,

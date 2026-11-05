@@ -2,96 +2,199 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../app/theme.dart';
+import '../../app/sticker_avatar.dart';
+import '../../app/tokens.dart';
 import 'friends_provider.dart';
 
 class FriendsListScreen extends ConsumerWidget {
   const FriendsListScreen({super.key});
 
-  Future<void> _confirmRemove(BuildContext context, WidgetRef ref, Friend friend) async {
-    final shouldRemove = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Remove friend?'),
-        content: Text('Remove ${friend.name} from your friends list?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: const Text('Keep')),
-          TextButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: const Text('Remove')),
-        ],
-      ),
-    );
-    if (shouldRemove == true && context.mounted) {
-      ref.read(friendsProvider.notifier).removeFriend(friend.id);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${friend.name} was removed from your friends.')));
-    }
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final friends = ref.watch(friendsProvider);
-    if (friends.isEmpty) return const _EmptyFriends();
-
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 112),
-      itemCount: friends.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
-      itemBuilder: (context, index) {
-        final friend = friends[index];
-        return Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(color: AppTheme.surface, borderRadius: BorderRadius.circular(18), border: Border.all(color: AppTheme.border)),
-          child: Column(children: [
-            Row(children: [
-              CircleAvatar(
-                radius: 25,
-                backgroundColor: AppTheme.softBlush,
-                child: Text(friend.name.replaceFirst('Stranger #', '#'), style: const TextStyle(color: AppTheme.primaryCoral, fontWeight: FontWeight.bold)),
+    final snapshot = ref.watch(friendsProvider);
+    return snapshot.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, stackTrace) =>
+          _FriendsError(onRetry: () => ref.invalidate(friendsProvider)),
+      data: (data) {
+        if (data.friends.isEmpty && data.incomingRequests.isEmpty) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(AppTokens.space32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const StickerAvatar(variant: 2, size: 112),
+                  const SizedBox(height: AppTokens.space20),
+                  Text(
+                    'Your people will be here',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.headlineSmall,
+                  ),
+                  const SizedBox(height: AppTokens.space8),
+                  Text(
+                    data.outgoingRequests.isEmpty
+                        ? 'Connect with someone during a chat to start a friendship.'
+                        : 'Your friend request is waiting for a reply.',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ],
               ),
-              const SizedBox(width: 12),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(friend.name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 3),
-                Text('Connected ${_connectedLabel(friend.connectedAt)}', style: const TextStyle(fontSize: 13, color: AppTheme.secondaryText)),
-              ])),
-            ]),
-            const SizedBox(height: 14),
-            Row(children: [
-              Expanded(child: ElevatedButton.icon(onPressed: () => context.push('/chat'), icon: const Icon(Icons.chat_bubble_outline_rounded), label: const Text('Chat Now'))),
-              const SizedBox(width: 10),
-              OutlinedButton(
-                onPressed: () => _confirmRemove(context, ref, friend),
-                style: OutlinedButton.styleFrom(foregroundColor: AppTheme.secondaryText, side: const BorderSide(color: AppTheme.border)),
-                child: const Text('Remove'),
-              ),
-            ]),
-          ]),
+            ),
+          );
+        }
+        return RefreshIndicator(
+          onRefresh: () async => ref.invalidate(friendsProvider),
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+            children: [
+              if (data.incomingRequests.isNotEmpty) ...[
+                Text(
+                  'Friend requests',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 8),
+                for (final request in data.incomingRequests)
+                  _RequestRow(
+                    request: request,
+                    onAction: (accept) =>
+                        _respond(context, ref, request, accept: accept),
+                  ),
+                const SizedBox(height: 20),
+              ],
+              if (data.friends.isNotEmpty) ...[
+                Text(
+                  'Your friends',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 8),
+                for (final friend in data.friends)
+                  Card(
+                    child: ListTile(
+                      leading: const StickerAvatar(variant: 1, size: 48),
+                      title: Text(friend.name),
+                      subtitle: const Text('Friend connection'),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: () => context.push(
+                        '/friends/${Uri.encodeComponent(friend.id)}',
+                        extra: friend.name,
+                      ),
+                    ),
+                  ),
+              ],
+              if (data.outgoingRequests.isNotEmpty) ...[
+                const SizedBox(height: 20),
+                Text(
+                  'Sent requests',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 8),
+                for (final request in data.outgoingRequests)
+                  Card(
+                    child: ListTile(
+                      leading: const StickerAvatar(variant: 3, size: 48),
+                      title: Text(request.name),
+                      subtitle: const Text('Waiting for a reply'),
+                      trailing: const Icon(Icons.hourglass_top_rounded),
+                    ),
+                  ),
+              ],
+            ],
+          ),
         );
       },
     );
   }
 
-  static String _connectedLabel(DateTime connectedAt) {
-    final elapsed = DateTime.now().difference(connectedAt);
-    if (elapsed.inDays >= 1) return '${elapsed.inDays}d ago';
-    if (elapsed.inHours >= 1) return '${elapsed.inHours}h ago';
-    return 'just now';
+  Future<void> _respond(
+    BuildContext context,
+    WidgetRef ref,
+    FriendRequestSummary request, {
+    required bool accept,
+  }) async {
+    try {
+      final service = ref.read(friendServiceProvider);
+      if (accept) {
+        await service.acceptRequest(request.requestId);
+      } else {
+        await service.rejectRequest(request.requestId);
+      }
+      ref.invalidate(friendsProvider);
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not update that request. Try again.'),
+          ),
+        );
+      }
+    }
   }
 }
 
-class _EmptyFriends extends StatelessWidget {
-  const _EmptyFriends();
+class _RequestRow extends StatelessWidget {
+  const _RequestRow({required this.request, required this.onAction});
+
+  final FriendRequestSummary request;
+  final ValueChanged<bool> onAction;
+
+  @override
+  Widget build(BuildContext context) => Card(
+    child: Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Column(
+        children: [
+          ListTile(
+            leading: const StickerAvatar(variant: 0, size: 48),
+            title: Text(request.name),
+            subtitle: const Text('Wants to keep chatting'),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: () => onAction(false),
+                child: const Text('Decline'),
+              ),
+              const SizedBox(width: 8),
+              FilledButton(
+                onPressed: () => onAction(true),
+                child: const Text('Accept'),
+              ),
+              const SizedBox(width: 12),
+            ],
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _FriendsError extends StatelessWidget {
+  const _FriendsError({required this.onRetry});
+
+  final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Container(padding: const EdgeInsets.all(20), decoration: const BoxDecoration(color: AppTheme.softBlush, shape: BoxShape.circle), child: const Icon(Icons.people_outline_rounded, size: 42, color: AppTheme.primaryCoral)),
-            const SizedBox(height: 18),
-            const Text('No friends yet', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            const Text('When someone accepts your friend request, they will appear here.', textAlign: TextAlign.center, style: TextStyle(color: AppTheme.secondaryText)),
-          ]),
-        ),
-      );
+    child: Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.cloud_off_rounded, color: AppTokens.muted, size: 40),
+          const SizedBox(height: 12),
+          Text(
+            'Friends could not load',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+          const SizedBox(height: 8),
+          const Text('Check your connection and try again.'),
+          const SizedBox(height: 16),
+          OutlinedButton(onPressed: onRetry, child: const Text('Retry')),
+        ],
+      ),
+    ),
+  );
 }

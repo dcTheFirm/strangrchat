@@ -3,6 +3,9 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+# Prisma's schema engine requires OpenSSL on Alpine.
+RUN apk add --no-cache openssl
+
 # Install dependencies
 COPY package*.json ./
 COPY prisma ./prisma/
@@ -20,13 +23,15 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
-COPY package*.json ./
-RUN npm ci --only=production
+RUN apk add --no-cache openssl
 
+COPY package*.json ./
 COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/node_modules/@prisma/client ./node_modules/@prisma/client
+RUN npm ci
+RUN npx prisma generate
+
 COPY --from=builder /app/dist ./dist
 
 EXPOSE 3000
 
-CMD ["npx", "prisma", "db", "push", "&&", "node", "dist/index.js"]
+CMD ["sh", "-c", "npx prisma db push && node dist/index.js"]

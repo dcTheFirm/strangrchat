@@ -1,252 +1,223 @@
 ---
 name: strangrchat-ui-motion
-description: Design and implement StrangrChat Flutter UI/UX using the Milky Sage editorial lounge system. Use for any change to onboarding, home/matching, gender or country filters, chat, friend requests, kept friends, notifications, profile, subscriptions, stickers/avatars, safety, navigation, typography, themes, motion, loading, empty or error states. Apply this skill even for small UI changes so the product remains coherent.
+description: Design and implement StrangrChat's Flutter UI/UX in the playful Peach Pop visual system inspired by the bundled dating, matching, onboarding, and chat reference screenshots. Use for any change to onboarding, discovery/matching, swipe cards, match moments, chat list, chat, sticker avatars, friend/message requests, notifications, country/gender filters, profile, subscription, safety, navigation, typography, themes, motion, loading, empty, or error states. Apply even to small UI changes to keep the product coherent.
 ---
 
-# StrangrChat UI, UX + Motion Skill
+# StrangrChat UI/UX + Motion Skill
 
-This skill targets the existing Flutter app in `strangrchat_app/` (Riverpod, go_router, Material 3) and its existing backend in `strangrchat_server/`. Read `references/ui-reference-spec.md` for the supplied visual references and product requirements, `references/repo-audit.md` for the 4 Nov 2026 code snapshot, and `references/motion-recipes.md` before writing animation code.
+This skill targets the existing Flutter application in `strangrchat_app/` and its existing backend in `strangrchat_server/`. Start with `references/ui-reference-spec.md`, inspect the visual screenshots in `references/visuals/`, use `references/repo-audit.md` as a dated audit snapshot, and consult `references/motion-recipes.md` before adding animations. Optional free/open-source resources are listed in `references/free-ui-resources.md`.
 
-**First step for every task:** inspect the relevant current widgets, providers, routes, models, and backend contracts. The audit is a dated snapshot, not proof that code is unchanged. Do not assume a screen, endpoint, event, counter, or entitlement exists until verified in the current branch.
+**First step for every task:** inspect the current branch's relevant widgets, providers, routes, models, assets, tests, and backend contracts. The repo audit is dated 4 Nov 2026 and may be stale. Do not assume a screen, endpoint, socket event, counter, entitlement, or dependency still exists until verified.
 
-## 0. Product and implementation guardrails
+## 0. Non-negotiable product and engineering rules
 
-1. **Preserve the product promise.** StrangrChat is anonymous, ephemeral random chat. Do not weaken privacy, consent, reporting, blocking, or age requirements to make a screen look simpler.
-2. **Do not silently change contracts.** Preserve socket event names, payloads, REST contracts, Prisma schema semantics, server authority, and navigation behavior unless the user explicitly requests a product/backend change. Flag missing backend support instead of inventing an API or pretending a UI control works.
-3. **Keep chat ephemeral.** Never persist, cache, or log chat text or chat images to disk or analytics. Do not add disk-backed image caches for chat media. Do not include private message content in notification previews, analytics, logs, or crash reports. Keep chat media in memory and follow the existing safety/image pipeline.
-4. **Profile stickers are different from chat media.** User profile avatars must be app-owned goofy sticker illustrations, not real user photos. Assign one sticker identifier when the profile is created and keep it stable across sessions/devices. Store only a small asset/sticker key as profile metadata if the current data contract supports it; do not store an uploaded portrait. Do not randomize the sticker on every rebuild or screen visit.
-5. **No runtime font downloads.** Bundle licensed font files as app assets. Do not use `google_fonts` runtime fetching.
-6. **Retain safety protections.** Keep `ScreenProtector`/FLAG_SECURE, the profanity filter, image guard, explicit 18+ and terms consent (never prechecked), and report/block access. Improve presentation and reachability; never remove protections as a design shortcut. Preserve a debug-only screenshot path using `--dart-define=ALLOW_SCREENSHOTS=true`; default production behavior remains protected.
-7. **Honest state.** Never show “request sent”, “reported”, “blocked”, “saved”, “notification delivered”, or “subscription active” unless the relevant operation actually succeeded. Model pending, success, failure, unavailable, and retry states truthfully.
-8. **Server owns matching and entitlements.** The client may display available filters, remaining free uses, and subscription state, but it must not be the authority for gender eligibility, free-use limits, country matching, queue priority, or VIP access.
-9. **Do not request precise location for matching.** Distance/radius filtering is removed. Country matching must not expose coordinates, street-level location, or distance to another user.
+1. **Preserve StrangrChat, not a template app.** Keep the existing Flutter/Riverpod/go_router structure and the current Node.js/Socket.IO backend. Do not replace the backend with Firebase, Supabase, or another service. Do not transplant an entire sample app.
+2. **Preserve anonymous and ephemeral chat.** Never persist, cache, or log chat text or chat images to disk or analytics. Do not add a disk-backed chat-media cache. Chat content remains in memory for the active session only and must be cleared when the session ends. Do not put private message text in local notifications, push payloads, analytics, crash logs, or notification inbox previews.
+3. **Profile identity uses app-owned stickers.** Do not use profile-photo upload, gallery selection, camera capture, or actual user portraits. Assign one random goofy sticker illustration to each profile at creation, then keep the sticker ID stable across rebuilds, app launches, and devices. Store only the sticker asset key/ID as profile metadata if the existing contract supports it. Do not randomize on every render. Sticker identity is distinct from ephemeral chat image sharing, which must follow the existing safety and no-persistence rules.
+4. **Server is authoritative.** The backend/store—not the client UI—owns matching eligibility, gender filters, the three-free-use allowance, same-country matching, queue priority, friend requests, report/block actions, notification delivery/read state, and subscription entitlements. UI may display authoritative state; it must not be the security boundary.
+5. **No distance or radius matching.** Remove distance, radius, “nearby”, “X km away”, and GPS permission flows from matching. Use a Same country preference instead. Do not expose coordinates, city-level precision, or exact location in cards or notifications.
+6. **Female filter allowance.** The Female gender-match filter has three free uses; further use requires the applicable subscription. The reset cadence and exact consumption point were not specified. Do not invent a daily/monthly/lifetime reset or decide whether opening the filter, starting a queue, or completing a match consumes a use. Read the backend contract or flag the missing decision. Never enforce this gate only in Flutter.
+7. **Honest UI.** Never claim a friend request, message request, report, block, save, notification, or purchase succeeded unless the actual operation returns success. Represent idle, loading, pending, success, unavailable, and failure states truthfully.
+8. **Keep safety and consent.** Preserve screenshot protection (`ScreenProtector`/FLAG_SECURE), profanity filtering, image guard, report/block access, explicit 18+ confirmation, and terms/zero-tolerance consent. Consent must remain unchecked by default. Improve the presentation; do not remove safeguards to simplify screens.
+9. **No runtime font downloads.** Bundle font files and licence notices with the app. Do not use `google_fonts` in a way that downloads fonts at runtime.
+10. **No invented contracts.** If notification inbox, push, same-country, friend/message request, sticker metadata, or gender-use quota support is missing, document the backend dependency and ask for/agree the contract before building a fake interaction.
 
-## 1. Visual direction: Milky Sage × Editorial Lounge
+## 1. Visual system: Peach Pop
 
-Use the supplied screenshots as the visual reference for hierarchy and layout, while retaining the previously approved Milky Sage palette. The target should feel like a calm, slightly literary “stranger lounge”: warm paper, elegant serif headlines, thin rules, quiet navigation, confident whitespace, and small moments of playful sticker art. It should not look like a generic dating-app template or a dashboard full of cards.
+The latest bundled screenshots are the primary visual reference. They supersede the older Milky Sage/editorial direction. Reproduce the screenshots' playful, modern dating-app energy while adapting details to StrangrChat's privacy model and sticker-only profile identity.
 
-### Visual principles
+### Visual signature
 
-- **Canvas:** warm milk/off-white, close to paper; avoid cold grey and stark pure white as the page background.
-- **Surfaces:** soft white/milky panels with fine hairline borders. Prefer open layouts and horizontal separators over wrapping every row in a floating card.
-- **Accent:** muted sage for selected states, small highlights, sticker palettes, and quiet illustrations.
-- **Actions:** deep forest green for primary actions, with accessible light text. Keep buttons confident and simple; no coral, neon, glossy gradients, or heavy glow.
-- **Typography:** editorial high-contrast serif for large page headlines and section titles; Figtree (or similarly legible bundled sans) for body, forms, navigation, and chat. Use italic serif for short secondary notes only. Small uppercase labels may use increased tracking.
-- **Layout:** generous whitespace, thin dark/neutral rules, disciplined alignment, asymmetry where it adds character. Do not copy the reference brand name “Kindred”, its exact marketing copy, sample portraits, or sample prices. Keep the product name StrangrChat.
-- **Illustration:** replace profile photography with random goofy app-owned sticker art. Do not use emoji as a substitute for designed sticker assets.
-- **Motion:** restrained and purposeful. Use subtle fades, small slides, tactile press feedback, and gentle sticker motion. Avoid particle storms, constant pulsing, large parallax, and attention-grabbing animation on every control.
+- **Mood:** warm, playful, social, optimistic, expressive, and polished. It should feel like a consumer dating/discovery app, not a corporate dashboard or a generic Material sample.
+- **Backdrop and hero moments:** use soft peach-to-pink-to-lavender gradients in onboarding, match celebrations, and large promotional/empty-state compositions. Do not put a loud gradient behind every page or every card.
+- **App surfaces:** warm cream/off-white screens with white or softly tinted cards. Use subtle shadows, soft borders, and rounded corners. Keep content readable and avoid excessive glass/blur.
+- **Primary action:** coral-to-tangerine gradient or accessible deep coral button, rounded/pill-like, with a clear label and tactile press response. For the brighter gradient, use dark ink text if white text cannot meet contrast.
+- **Secondary accents:** soft blush, peach, muted lavender, warm sand, and small mint/green status accents.
+- **Typography:** friendly geometric/rounded sans-serif for headings, body, buttons, and navigation. Use bold, short headlines and readable line lengths. Do not carry forward the previous large editorial serif system as the primary look.
+- **Imagery:** replace people in the reference screenshots with original app-owned goofy sticker characters. Use a consistent illustration style, not emoji glyphs and not real-person photos.
+- **Navigation:** compact top bar for brand/actions where needed and a dark, rounded bottom navigation capsule with a coral active state on main app screens, matching the supplied chat/discovery references.
+- **Density:** mobile-first. Make the main action obvious, cards easy to scan, and chat controls reachable by thumb. Avoid overfilling the viewport.
 
-### Colour tokens
+### Starting colour tokens
 
-Define tokens once (for example in `lib/app/tokens.dart`) and use them through `ColorScheme`/theme extensions. These are starting values; run contrast checks on actual rendered pairings before shipping.
+Define colours centrally (for example `lib/app/tokens.dart`) and apply through the app theme. These are starting values, not unverified accessibility guarantees; calculate contrast for actual foreground/background pairings before shipping.
 
-| Token | Light / primary | Dark / supporting | Purpose |
-|---|---|---|---|
-| `bg` | `#F8F7F2` | `#18221B` | warm milk page canvas |
-| `surface` | `#FFFDFC` | `#202C24` | sheets, panels, input backgrounds |
-| `surfaceHigh` | `#EEF1EA` | `#2B392F` | received bubbles, selected soft surfaces |
-| `outline` | `#DFE0D8` | `#405044` | quiet separators and hairlines |
-| `outlineStrong` | `#788579` | `#819485` | visible control borders; verify 3:1 |
-| `text` | `#20241F` | `#F1F2EC` | primary text |
-| `textMuted` | `#566157` | `#B8C1B7` | secondary text |
-| `forest` | `#315B43` | `#A8C4AA` | primary action / selected control |
-| `onForest` | `#FFFFFF` | `#172019` | text/icons on primary action; verify contrast |
-| `sage` | `#829A80` | `#A0B89E` | selected state, sticker accents, illustration |
-| `sageSoft` | `#E1E9DD` | `#34483A` | quiet selected fill |
-| `success` | `#28734D` | `#8FC49D` | positive state |
-| `danger` | `#B4233A` | `#F08A9B` | report, destructive actions |
-| `ink` | `#242521` | `#F1F2EC` | strong rules and editorial emphasis |
+| Token | Starting value | Intended use |
+|---|---:|---|
+| `bg` | `#FFF8F4` | warm cream screen background |
+| `surface` | `#FFFEFC` | primary cards, sheets, message list |
+| `surfaceWarm` | `#FFF0E8` | incoming bubbles, search fields, soft panels |
+| `peach` | `#FFD6C2` | illustration and onboarding tint |
+| `blush` | `#F5C2D7` | soft selected/illustration accent |
+| `lavender` | `#D8B3E5` | gradient and decorative accent |
+| `coral` | `#F15B50` | bright brand accent, icon fills, gradient stop |
+| `coralDeep` | `#B94336` | accessible coral button/text option |
+| `tangerine` | `#FF913F` | gradient stop and warm accent |
+| `ink` | `#211C1B` | main text, dark surfaces, button text on bright gradient |
+| `muted` | `#786F6D` | secondary text and metadata |
+| `line` | `#EDE3DE` | subtle separators and card borders |
+| `navDark` | `#211C1B` | dark bottom navigation |
+| `success` | `#187A58` | online/accepted states, always with text/icon |
+| `danger` | `#B4233A` | report, block, destructive states |
 
-Rules: body text must meet WCAG 2.x 4.5:1; large text and meaningful UI boundaries need at least 3:1. A subtle outline is decorative and cannot be the only affordance for a control. Do not rely on colour alone for unread, online, error, or selected states. Dark mode must be contrast-tested independently; the light editorial theme is the primary reference.
+A bright coral/tangerine gradient may be used with `ink` text when that maintains adequate contrast. If white text is required, use a sufficiently dark coral fill (for example `coralDeep`) and verify at least 4.5:1 for normal text. Body text must meet WCAG 2.x 4.5:1; meaningful controls/indicators should meet 3:1. Do not rely on colour alone for online, unread, selected, error, or subscription states. Dark mode must be designed and tested separately rather than simply inverting these values.
 
-### Typography
+### Typography, shape, spacing
 
-- Display: **Cormorant Garamond** or another bundled high-contrast editorial serif; use italic for the home hero when it matches the supplied design.
-- UI/body: **Figtree**; use a Devanagari fallback such as Noto Sans Devanagari if Hindi support is enabled.
-- Bundle fonts locally and include their licence files. Verify exact font assets and family names before adding them to `pubspec.yaml`.
-- Suggested scale: display 48–60/0.98–1.05 line-height on wide layouts, 40–48 on compact layouts; page title 32–38; section title 26–32; body 15–17/1.45; labels 11–13 with tracking; chat body 16/1.4.
-- Keep the serif expressive and sparse. Do not render every label or button in serif. Test text scaling at 200%; never clip text to preserve a composition.
+- Prefer a friendly display face such as bundled **Bricolage Grotesque** or **Manrope** for prominent titles, paired with **Figtree** for body, forms, navigation, and chat. Use only fonts actually bundled and declared in `pubspec.yaml`; verify licences and family names.
+- Suggested scale: hero 34–42sp / heavy; page title 26–32sp / bold; section heading 18–22sp / bold; body 15–17sp; helper/metadata 11–13sp. Chat text should remain comfortable at 16sp where possible.
+- Typical radii: 14–18 for inputs/chips, 20–28 for cards and sheets, full radius for primary CTA and bottom-nav capsule. Message bubbles may use 18–22 with a slight tail-like corner distinction.
+- Spacing scale: 4, 8, 12, 16, 20, 24, 32. Use generous outer padding and consistent gaps.
+- Shadows are soft and sparse. Avoid stacked shadows, hard neon glows, and excessive blur.
+- Respect platform safe areas, keyboard insets, large text scaling, and narrow screens. Never fix a visual composition by clipping content.
 
-### Shape, space, and elevation
+## 2. Reference screens and required experience
 
-- Prefer square/low-radius editorial controls for desktop/tablet surfaces; use 12–18 px radii for compact mobile controls and 18–24 px for sheets where appropriate. Do not force pill shapes onto every element.
-- Use a consistent 4/8/12/16/24/32/48 spacing scale.
-- Use thin separators and very subtle shadows. No stacked shadows or blurred glass everywhere.
-- Keep one clear focal point per screen and allow whitespace to do its job.
+Read the detailed visual interpretation in `references/ui-reference-spec.md`. The screenshots are design references only: never copy sample names, human photos, message text, prices, brand marks, or fake status data.
 
-## 2. Global navigation and notification bell
+### 2.1 Onboarding
 
-- The app shell must provide a consistent top-level notification bell with an accessible label, a visible unread indicator/count, and a meaningful tap target.
-- On wide layouts, use a restrained top navigation bar: StrangrChat wordmark/descriptor on the left, main destinations, then notification bell and sticker avatar on the right. Avoid copying the “Kindred” name from the reference.
-- On Android/mobile, adapt to a compact app bar. Keep the notification bell near the top-right. Put primary destinations in the existing mobile navigation pattern (for example bottom navigation) rather than squeezing desktop links into the header.
-- Tapping the bell opens a notifications inbox. On wide layouts it may be a right-side drawer over a dimmed background; on mobile use a modal sheet or full-screen inbox with a clear close/back affordance.
-- The inbox should support unread/read visual states, time labels, “Mark all as read”, and opening the relevant destination. Include only notification types backed by real product events: friend request, message request/new chat activity, new match, subscription/trial/payment state, and chat-expiry reminder where implemented.
-- Use short, privacy-safe copy. Never display message body text, sensitive profile data, or exact location in the inbox or OS push preview. Distinguish unread state by both a marker and weight, not colour alone.
-- Empty, loading, permission-denied, offline, and error states need deliberate UI. Do not fabricate example notifications in production.
-- **Backend dependency:** verify the existing event model, inbox storage/read state, delivery channel, and routing payloads before wiring UI. Do not invent socket names or notification APIs. If absent, build the visual shell only and clearly report the missing integration contract.
+- Use a warm peach/pink/lavender backdrop or a cream screen with a controlled gradient hero panel.
+- Feature an orbital composition of goofy sticker characters, tiny hearts, speech marks, and subtle dotted paths. Keep the illustration bespoke and balanced; do not use generic emoji as final artwork.
+- Show a bold headline, one short explanation, one prominent “Find someone” / equivalent CTA, and compact pagination/progress markers if onboarding has multiple steps.
+- Keep 18+ and terms/zero-tolerance consent explicit and unchecked by default. Do not hide consent behind a swipe gesture or decorative panel.
 
-## 3. Required product behavior and filter rules
+### 2.2 Home / discovery / matching
 
-### 3.1 Remove distance; add same-country matching
+- Use a clear discovery hierarchy: top app bar, “New matches” or another truthful section, a horizontal strip of sticker avatars when real match data exists, and a large discovery card/primary matching action.
+- The screenshot's “Near You” label and kilometre distance must not be copied. Use a neutral section label such as “Discover” or “Same country” only when that reflects a real filter/data source.
+- Use assigned sticker characters in the hero/profile card. The sticker may be framed by a colourful panel or illustrated scene, with the display name/alias and approved non-sensitive details beneath it.
+- If the existing product includes swipe mode, use a layered card stack with clear pass/like gestures, visible buttons for accessibility, and a match transition. If swipe mode is not implemented in the current app/backend, do not silently invent persistence, matching, or queue behavior; implement only the requested UI with explicit integration notes.
+- The random-chat action should remain prominent and must connect to the existing queue flow. Do not bury it behind filters.
+- Matching preferences should be in a compact sheet/secondary screen: gender, Same country, and any already-supported interests. No distance slider/radius picker.
+- Female filter UI displays the remaining free-use count only from server state. After three free uses, show the actual subscription gate. Do not invent a reset time.
 
-- Remove distance, nearby, radius, kilometre/mile sliders, distance badges, and distance-based copy from every matching screen, filter sheet, saved preference, and empty/waiting suggestion.
-- Replace the distance control with a simple **Same country** toggle/filter. When enabled, the match pool must be restricted to the user's country; when disabled, the user may enter the supported global pool.
-- Do not request GPS permission or display distance. Prefer a trusted country code already known by the service/account; do not infer a country from a street location or expose a precise location.
-- The server must enforce the actual queue constraint. The client only displays and submits the supported preference using an already-defined contract. If the current backend has no country preference or matching enforcement, flag it as a backend dependency rather than implementing a client-only illusion.
-- Update all search/wait copy: never suggest “Try Nearby” or “increase radius”. Use choices that exist, such as relaxing Same country or changing the gender/intent filter if allowed.
+### 2.3 Match found
 
-### 3.2 Gender matching and the Female filter allowance
+- Use the composition from the reference: celebratory headline, two large overlapping/adjacent profile visuals, and one short line explaining the connection.
+- Both visuals must be the users' assigned goofy sticker illustrations, never photos.
+- Use a short, joyful entrance animation (sticker rise/scale, small heart burst, text fade) and one strong “Say hello” action, plus a low-emphasis Later/Continue alternative where appropriate.
+- Do not imply a persistent match if the server only created an ephemeral chat session. Copy must reflect the actual state (“Connected” vs “Match saved”).
 
-- The Female gender-match filter has **three free uses**, after which the user must subscribe to continue using that filter. Present the remaining allowance clearly and calmly (for example, “2 free uses left”) without fake urgency.
-- On the third-use boundary, show a concise VIP/subscription explanation and a clear way to see plans. Do not imply that the entire app is locked; only the gated filter/match action is gated.
-- Do not invent whether the three uses reset daily, monthly, or never; that cadence is not specified. Do not invent whether a use is consumed when the user opens the filter, joins the queue, or receives a match. Confirm the exact consumption event and reset policy against the product/backend contract.
-- The server/entitlement layer must be the authority for the remaining count and subscription access. Never rely on a local counter, hidden button, or client-only check to enforce access. If the API does not expose remaining uses / entitlement state, report the missing contract.
-- Keep other gender options and the selection state consistent with the actual product/backend rules. Do not assume or create extra gender identities or restrictions not present in the app's model.
+### 2.4 Chat list / requests
 
-### 3.3 Random goofy sticker profile avatars
+- Use a warm cream screen with a rounded search field and clean rows: sticker avatar, display name/alias, latest safe metadata, time/status, and unread/request indicator.
+- The supplied reference shows previews of message text. StrangrChat must not persist chat text, so do not reproduce persistent private-message snippets. Use safe metadata such as “New message request”, “Waiting for your reply”, or session state only if supported.
+- Separate new friend requests and message requests from active/kept friends when real APIs/events support that split. Request actions must show pending/loading/success/failure states.
+- Use a dark rounded bottom navigation with simple icons and a coral active state, adapted to existing destinations.
 
-- New profiles receive a random sticker illustration from a bundled, app-owned sticker pack. No real-person portrait or profile-photo upload is used for profile identity.
-- Include a deliberately art-directed pack of varied goofy characters/objects (for example odd little creatures, expressive fruit, tiny monsters, abstract mascots). Stickers should have a coherent outline/texture and varied silhouettes; avoid repetitive coloured circles with generic icons.
-- Assign the sticker once at profile creation. Persist a stable `stickerId`/asset key as profile metadata only if the existing profile contract supports it; otherwise document the required profile metadata change for backend review. Keep the assigned sticker consistent in profile, app bar, friends list, chat header, friend-request rows, and notification items.
-- Never pick a new sticker on every widget rebuild. Use a stable assignment seeded/generated once per profile, not a random call inside `build()`.
-- Replace profile “Change photo”/photo upload UI with a “Your sticker” preview. Do not remove `image_picker` from the project if it is used for ephemeral chat image sharing; only remove profile-photo affordances.
-- Keep sticker assets local and licensed. Do not fetch avatars from remote image services, use user-generated portraits, or use emoji as a visual substitute.
+### 2.5 Chat conversation
 
-## 4. Screen blueprints
+- Keep header simple: back, assigned sticker avatar, alias, truthful online/connection state, and a compact menu or visible Safety action.
+- Use warm neutral incoming bubbles and soft peach/blush outgoing bubbles; maintain strong text contrast. Bubbles should be rounded, grouped by sender, and animate only once on arrival.
+- Keep composer anchored above the keyboard with an image/attachment action only if the existing ephemeral image pipeline supports it. Use a coral send action with disabled/enabled/loading states.
+- Do not store chat history, persist media, show content from a previous ended chat, or place message previews in notifications.
+- Keep Skip/Next deliberate when it ends an ephemeral conversation; use double-tap confirmation or an equivalent guard if supported by current behavior.
+- Partner-left/chat-ended must have its own state. Never show an empty composer beneath a misleading “Searching…” label.
 
-Adapt to Android first and responsive widths. The screenshot references are web-sized; preserve their visual logic, not their desktop pixel dimensions.
+### 2.6 Notifications
 
-### 4.1 Home / matching
+- Put an accessible notification bell in the top bar, with a visible unread marker/count.
+- Inbox types should include new friend request and new message request, plus only other event types verified in the app (for example a match event or subscription state). Do not invent events.
+- Notifications must not reveal private chat text. Use wording like “You have a new message request”, not the message content.
+- Wide layouts may use a right-side panel; phones should use a sheet or full-screen inbox.
+- Mark read, mark all read, accept/decline, and routing are functional only if supported by the backend. Display unread/read, loading, empty, and error states.
 
-- Header: StrangrChat wordmark; primary destinations on wide layouts; notification bell with unread state; current user's assigned sticker avatar.
-- Hero: a small tracked uppercase eyebrow, a large editorial serif headline (can be italic), a short human explanation of ephemeral matching, and two actions: a strong **Start a random chat** primary CTA and a quiet **See plans** link/button.
-- Keep the primary action visible without scrolling through a long filter form. Do not make a large Orb the main home CTA; the Orb may remain a supporting search/match motif.
-- Below the hero, use a restrained visual/sticker composition or paper-like texture. Avoid generic stock photos and overdecorated gradient blobs.
-- Put matching preferences in a compact “Match preferences” section or sheet. Include gender selection, Same country, intent/interests, and only options actually supported. Do not include distance/radius/city proximity.
-- The gender option should show the remaining free Female-filter uses when the server exposes it. When exhausted, show the subscription gate with clear plan details.
+### 2.7 Friends / kept connections
 
-### 4.2 Searching and match found
+- Use sticker avatars, a short alias/display name, real presence/last-active data if available, and distinct actions to chat or remove.
+- Do not show kilometres, nearby status, or city-level precision.
+- Chat must actually route to the correct supported friend/conversation. Never use a route that just opens a generic chat and claim it started a friend chat.
+- Remove uses a confirm/undo pattern with honest result feedback.
 
-- Searching should feel calm and alive: small sage Orb/rings or sticker constellation, short rotating copy, and a visible Cancel action. One loop per screen maximum; respect reduced motion.
-- Never show fake user counts or claim a match is imminent. No “Nearby” or distance suggestions.
-- Match-found moment: two assigned sticker avatars meet briefly, a subtle sage highlight, and a clear “Connected” state before entering chat. Do not show real profile photos.
-- Match state and all queue outcomes must reflect backend events. Handle timeout, cancellation, queue error, partner-left, and retry explicitly.
+### 2.8 Profile
 
-### 4.3 Chat
+- Show the stable goofy sticker avatar as identity. No photo change/upload entry point.
+- Profile fields (display name, bio) and preferences should use clear labels, rounded controls, and concise descriptions.
+- Online status, read receipts, notifications, and other toggles must reflect actual persisted settings and backend capability.
 
-- Header: assigned sticker avatar, neutral partner label/alias, online/connection state only when real, Add friend with real pending/accepted/error states, and a visible Safety entry for report/block.
-- Keep safety reachable in one tap. Report/block actions must not claim success until confirmed by backend.
-- Message bubbles are quiet and readable: incoming bubble on a soft surface, outgoing bubble in forest green with accessible text. Group consecutive messages, use timestamps sparingly, and animate only newly received messages.
-- Composer is simple and thumb-friendly. Send state is clear; profanity warnings are inline and accessible. Keep chat images in memory only and retain the existing safety validation flow.
-- Skip/Next belongs near the composer and should require deliberate confirmation if leaving destroys an ephemeral conversation.
-- Partner-left/chat-ended must become an explicit state, not an empty composer under a “Searching” title. End copy can say “Chat ended. Nothing was saved.” only if that statement matches actual storage behavior.
+### 2.9 Subscription / paywall
 
-### 4.4 Kept strangers / Friends
+- Use the warm gradient/cream style with prominent plan cards. On wide layouts a three-column comparison can be used; on Android, stack the cards or use a clear segmented selector so there is no cramped horizontal overflow.
+- Feature one plan with a darker or more saturated surface, but retain readable contrast and avoid fake urgency.
+- Show store-localized prices, purchase progress, success/failure and Restore purchases. Do not copy dollar prices, plan names, trial periods, or benefits from reference screenshots.
+- Explain the Female filter allowance accurately using real entitlement state. Do not claim a tier unlocks a feature until the store/backend confirms it.
 
-- Use an editorial page title such as “Kept strangers” and a small saved count. Use thin horizontal separators, not a grid of heavy cards.
-- Each row: stable sticker avatar, display name/alias, optional short bio or last-chat note, online/last-seen indicator, a clear chat action, and a separate remove action.
-- Presence labels must reflect real timestamps/status, never hardcoded “now”. Do not reveal precise location or distance in friend summaries.
-- Chat action must actually open/resume a conversation with that friend; if the current product cannot do this, don't label a route-only navigation “Chat now”.
-- Removing a friend uses a confirmation sheet or undo affordance. The result message must reflect real completion.
-- Empty/loading/error states follow the same paper/editorial system.
+### 2.10 Safety
 
-### 4.5 Subscription / VIP
+- Safety/report/block remains reachable in one tap from active chat and relevant request/profile surfaces.
+- Use a calm rounded sheet with clear reasons and destructive styling for report/block. Require confirmation for irreversible actions.
+- No success snackbar or checkmark until backend confirmation. If no endpoint/event exists, document that dependency and do not fake it.
 
-- Page title uses an editorial headline (for example, “Choose your place in the lounge”) with one concise explanation.
-- Compare Free, Plus, and Pro only if those exact tiers and benefits exist in the current product/store configuration. Use clear columns at wide widths; stack them on narrow Android screens without horizontal clipping.
-- One featured tier may use a deep forest fill with contrasting text, but do not overuse dark panels. Keep the other tiers milky with fine borders.
-- Preserve real localized store prices, purchase flow, restore purchases, renewal disclosures, and semantics. Never copy dollar values from reference screenshots or invent prices/perks.
-- The gender-filter three-use gate should link to this page and state exactly what subscription unlocks. No false countdowns, fake scarcity, or preselected expensive plan.
+## 3. Shared Flutter components
 
-### 4.6 Profile / “Your corner”
+Create reusable components before polishing each screen independently. Reuse current app architecture and naming conventions; these are conceptual names, not a requirement to create duplicate components if equivalents already exist.
 
-- Use a clear page title and thin divider. At wide widths, sticker preview can sit in a narrow left column with profile fields/settings on the right; stack vertically on mobile.
-- Show the assigned goofy sticker as the profile identity. No “Change photo”, camera button, gallery picker, or real-person portrait upload for profile avatar.
-- Display name and bio fields should be simple, with labels above controls and sensible character limits based on actual model constraints.
-- Settings such as online status, read receipts, and match notifications should reflect real preferences and backend capability. Use accessible switches and clear saved/unsaved/error feedback.
-- Save should be disabled while unchanged and have loading/success/failure states. Never show “Saved” before persistence confirms.
-
-### 4.7 Notifications inbox
-
-- Match the supplied reference: a right-side notice panel over a dimmed home screen on wide layouts; full-screen or modal sheet on Android.
-- Header: “Notices”/“Notifications”, Mark all as read, close/back. Rows use a small unread square/dot, concise title, muted secondary sentence, and compact uppercase relative timestamp.
-- Prioritise friend requests and message requests, then match events and relevant subscription/expiry notices. Add actions such as Accept/Decline or Open only if the existing service supports them.
-- Tapping a notice opens the correct destination and marks it read only when the backend contract specifies that behavior. Bulk mark-read must handle loading/failure.
-- Never include private chat message text in notification body or push preview. Use neutral copy such as “You have a new message request.”
-
-### 4.8 Onboarding
-
-- Lead with the editorial brand and one human promise, not jargon. Keep onboarding short.
-- 18+ confirmation and terms/zero-tolerance consent remain explicit and unchecked by default. Preserve anonymous session bootstrap behavior.
-- Explain that profile identity uses a random sticker, not a real photo, if profile setup is introduced.
-
-### 4.9 Safety / report and block
-
-- Use a calm bottom sheet with clear Report, Block, and Just skip actions and report-reason choices.
-- Do not tell the user a report was filed or a block persisted unless the backend confirms it. If the endpoint/event is missing, label the current action honestly and raise the backend dependency.
-- Danger uses its own accessible semantic colour and icon; never use forest/sage as the danger signal.
-
-## 5. Shared components and interaction language
-
-Build and reuse shared tokens/components before polishing every screen independently:
-
-- `EditorialScaffold` / page header and divider pattern
-- `EditorialButton` (forest primary, quiet secondary/link variant)
-- `AppTextField`, `AppToggleRow`, `AppChip`, `AppSheet`
+- `PeachPopScaffold` / shared page shell
+- `BrandGradientButton` (primary, secondary, disabled, loading)
+- `StickerAvatar` (stable sticker key; no portrait fallback)
+- `StickerOrbit` / `OnboardingOrbit`
+- `DiscoveryCard` / `SwipeCard` (only when swipe feature exists)
+- `MatchCelebration`
+- `ChatListTile` / `RequestTile`
+- `ChatBubble` and `ChatComposer`
 - `NotificationBell` and `NotificationInbox`
-- `StickerAvatar` (stable sticker key, no photo fallback)
-- `PresenceIndicator` with text semantics
-- `Toast` overlay for transient confirmation/error
-- `SkeletonRow` / `SkeletonBox`
-- `Orb` only for search/match supporting motion
+- `BottomNavCapsule`
+- `AppSheet`, `AppTextField`, `AppToggleRow`, `AppChip`
+- `PresenceIndicator`, `Toast`, `SkeletonRow`, `SkeletonCard`
 
-Use `AppTheme.light` and `AppTheme.dark` with explicit `ColorScheme` values; `themeMode: ThemeMode.system` is acceptable if both themes are complete. Define typography, colour, spacing, border, and motion tokens once. Do not hardcode style values across features.
+Define colours, type scale, radii, spacing, shadows, and motion tokens centrally. Avoid one-off hardcoded styling in feature screens. Use Material 3 as a foundation, not as the finished visual language.
 
-## 6. Motion and accessibility
+## 4. Free UI kit / package rules
 
-- Motion tokens starting point: fast 120 ms, base 220 ms, slow 380 ms, hero 700–900 ms.
-- Entrances use ease-out; exits ease-in; shared movement uses a restrained emphasized curve. Use springs sparingly for press feedback and sticker/avatar interactions.
-- Reduced motion (`MediaQuery.disableAnimationsOf(context)`) means no looping animations, parallax, or particle effects; use short fades or static states. Respect the system and any in-app preference.
-- Haptics are optional feedback, never the only signal. Provide a settings toggle and respect disabled state.
-- Every icon-only control has a semantic label and tooltip. Notification badge/unread state must be announced. Animated match/status transitions should have concise semantic announcements.
-- Test TalkBack, keyboard navigation where relevant, contrast in both themes, and 200% text scaling.
+Consult `references/free-ui-resources.md` before choosing third-party UI. Prefer a small, licensed component/package for a single screen (for example chat bubbles) rather than importing a full dating app. Check the exact current package version, licence, compatibility with the repository's Dart/Flutter SDK, transitive dependencies, caching behavior, privacy impact, and accessibility before adding it.
 
-## 7. Build order for a broad redesign
+A chat UI component must not introduce disk caching or persistent message history. Keep StrangrChat's Socket.IO/Node backend and current state-management approach. If a kit requires Firebase/Supabase, use it only as a visual reference unless the user explicitly asks to migrate.
 
-1. Re-read current code and backend contracts; make a list of verified screens, routes, state models, assets, and missing product dependencies.
-2. Add colour/type/spacing/motion tokens and theme support.
-3. Create editorial primitives and `StickerAvatar` with stable IDs/assets.
-4. Build app shell navigation and notification bell/inbox states.
-5. Redesign Home and matching preferences (remove distance; add Same country; implement visible gender allowance state only from server data).
-6. Polish search/match/chat/end states and safety.
-7. Redesign Friends, Subscription, and Profile.
-8. Run accessibility, responsive layout, privacy, and performance checks.
+## 5. Motion and interaction principles
 
-For each screen deliver: widget changes, all loading/empty/error/success states, responsive behavior, motion spec, semantics, tests, and a list of backend decisions or missing contracts.
+- The visual style is playful, but animation should explain interaction: sticker orbit during onboarding/search, swipe/stack movement for discovery, two-sticker meet moment for match, bubble entrance for new messages, and a small spring response for buttons.
+- Use one primary looping animation per screen at most. Never make every icon pulse.
+- Respect `MediaQuery.disableAnimationsOf(context)`: disable loops, large transforms, parallax, and particles; replace with a short fade/static illustration.
+- Haptics are optional feedback, not the only confirmation. Respect a user setting if one exists.
+- Use small spring press feedback, smooth ease-out entrances, and short ease-in exits. Avoid long blocking animations; navigation and chat must feel responsive.
+- Dispose controllers/timers and guard async callbacks with `mounted`.
+- Profile on low-end Android devices. Avoid full-screen blur, expensive particle systems, nested opacity over large trees, and unnecessary rebuilds.
 
-## 8. Quality checklist for every PR
+## 6. Build sequence for broad redesigns
 
-- [ ] Current branch inspected; audit findings reverified before relying on them.
-- [ ] Uses shared tokens/components; no one-off hardcoded style values.
-- [ ] Milky Sage editorial look: warm milk background, serif display, Figtree UI, thin rules, whitespace, restrained forest/sage accents.
-- [ ] No copied “Kindred” branding, screenshot prices, sample names, or sample notification data.
-- [ ] No profile photos: profiles use stable bundled sticker IDs; no profile photo-picker/upload flow.
-- [ ] Distance/radius/nearby UI removed everywhere; Same country replaces it without GPS permission.
-- [ ] Female filter has the specified three free uses; source of remaining count and reset/consumption policy verified server-side; no invented reset.
-- [ ] Notification bell is visible and accessible; inbox states and event types map to real backend events; no private message previews.
-- [ ] No false friend/report/block/save/purchase/notification success copy.
-- [ ] All states designed: idle, searching, matched, partnerLeft, error, offline, empty, loading.
-- [ ] Text contrast at least 4.5:1; meaningful UI controls at least 3:1; dark theme separately verified.
-- [ ] Reduced-motion path and haptics preference work.
-- [ ] No chat text/image disk writes, remote fonts, private analytics, or notification content leakage.
-- [ ] Safety is reachable in one tap from chat.
-- [ ] 200% text scale and low-end Android performance checked.
+1. Inspect current branch and verify the dated repo audit against the actual code.
+2. Map routes/providers/events and identify backend dependencies before changing UI.
+3. Add Peach Pop design tokens/theme and verify contrast; do not globally change behavior.
+4. Build sticker assets/registry and stable avatar assignment without adding real-photo upload.
+5. Build app navigation, notification bell, and inbox states.
+6. Redesign onboarding and home/discovery; remove distance and wire Same country plus server-backed Female allowance.
+7. Implement/refresh match-found, chat list/requests, active chat, and partner-left states.
+8. Redesign friends, profile, subscription, and safety surfaces.
+9. Run `dart format`, `flutter analyze`, relevant widget/unit tests, and manual Android checks for keyboard, safe areas, text scaling, reduced motion, and low-end performance.
 
-## 9. Anti-slop rules
+For every screen, deliver: widget code, all real states (loading/empty/error/offline/success), responsive layout, animation/haptic spec, semantics, tests, and explicit backend gaps.
 
-- One strong idea per screen. Do not fill empty space with decorative cards or random gradients.
-- Avoid generic icon-in-circle hero patterns, repeated identical cards, heavy shadows, and default Material demo styling.
-- Use expressive serif headlines sparingly; keep controls and body copy straightforward.
-- Use sticker illustrations as a coherent designed system, not emoji or profile photos.
-- Copy should be short, human, specific, and honest. Do not promise safety or privacy capabilities the code does not provide.
-- Prefer a few well-crafted components and local assets over unnecessary packages.
+## 7. Pull request / implementation checklist
+
+- [ ] Used the bundled screenshots and `ui-reference-spec.md` as visual references.
+- [ ] Uses Peach Pop tokens; no old Milky Sage-only/serif editorial styling unless a specific component calls for it.
+- [ ] Uses app-owned sticker art; no profile portraits, photo upload, or unstable random avatar changes.
+- [ ] No distance/radius/nearby/GPS matching UI remains; Same country is server-backed.
+- [ ] Female filter has three free uses; count and subscription decision are server/store authoritative; reset/consumption semantics are not invented.
+- [ ] Notification bell and inbox are wired only to real events; no private message previews.
+- [ ] Existing Node.js/Socket.IO, Riverpod, go_router, and API contracts are preserved.
+- [ ] Chat text and images remain ephemeral and are not written to persistent caches/logs/analytics.
+- [ ] No false friend/request/report/block/save/purchase success states.
+- [ ] Safety is reachable; 18+ and terms consent remain explicit and unchecked by default.
+- [ ] Contrast, semantics, keyboard/focus, reduced motion, and 200% text scale verified.
+- [ ] `flutter analyze` and relevant tests pass; low-end Android performance checked.
+
+## 8. Anti-template rules
+
+- Do not reproduce the screenshots pixel-for-pixel or copy their brand, profile photos, names, messages, prices, icons, or assets.
+- Do not turn every surface into the same card. Vary hierarchy and use whitespace intentionally.
+- Avoid generic emoji avatars; use a designed sticker pack with a coherent art direction.
+- Avoid random gradient blobs, excessive shadows, constant shimmer, and stock Material defaults.
+- Never fake matching, request, notification, friend, report, block, or subscription behavior.
+- Keep copy short, warm, playful, and honest. Privacy and safety claims must match the actual implementation.

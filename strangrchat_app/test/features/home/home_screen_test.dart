@@ -20,20 +20,21 @@ void main() {
 
     expect(find.text('Ready when you are'), findsOneWidget);
     expect(find.text('Find someone'), findsOneWidget);
-    expect(find.textContaining('Friends · Anyone · Nearby'), findsOneWidget);
+    expect(find.byTooltip('Notifications'), findsOneWidget);
+    expect(find.textContaining('Friends · preferences'), findsOneWidget);
 
     await tester.tap(find.text('Relationship'));
     await tester.pump(const Duration(milliseconds: 250));
-    expect(
-      find.textContaining('Relationship · Anyone · Nearby · 25 km'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('Relationship · preferences'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('match-filter-summary')));
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.text('Match settings'), findsOneWidget);
-    expect(find.text('Interests'), findsOneWidget);
+    expect(find.text('Gender preferences'), findsOneWidget);
+    expect(find.text('Same country'), findsOneWidget);
+    expect(find.textContaining('km'), findsNothing);
+    expect(find.text('Nearby'), findsNothing);
 
     await tester.pumpWidget(const SizedBox.shrink());
   });
@@ -48,10 +49,12 @@ void main() {
       ProviderScope(
         child: MaterialApp(
           theme: AppTheme.lightTheme,
-          home: MediaQuery(
-            data: const MediaQueryData(textScaler: TextScaler.linear(2)),
-            child: const HomeScreen(),
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: const TextScaler.linear(2)),
+            child: child!,
           ),
+          home: const HomeScreen(),
         ),
       ),
     );
@@ -66,6 +69,8 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     expect(tester.takeException(), isNull);
     expect(find.text('Match settings'), findsOneWidget);
+    expect(find.textContaining('km'), findsNothing);
+    expect(find.text('Nearby'), findsNothing);
 
     await tester.pumpWidget(const SizedBox.shrink());
   });

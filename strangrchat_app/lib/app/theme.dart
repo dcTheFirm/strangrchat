@@ -17,14 +17,14 @@ class AppTheme {
       useMaterial3: true,
       scaffoldBackgroundColor: AppTokens.bg,
       colorScheme: const ColorScheme.light(
-        primary: AppTokens.forest,
-        onPrimary: AppTokens.onForest,
-        secondary: AppTokens.sage,
-        onSecondary: AppTokens.text,
+        primary: AppTokens.coralDeep,
+        onPrimary: AppTokens.onCoralDeep,
+        secondary: AppTokens.tangerine,
+        onSecondary: AppTokens.ink,
         surface: AppTokens.surface,
-        onSurface: AppTokens.text,
+        onSurface: AppTokens.ink,
         error: AppTokens.danger,
-        onError: AppTokens.onForest,
+        onError: AppTokens.onCoralDeep,
         outline: AppTokens.outlineStrong,
       ),
       textTheme: const TextTheme(
@@ -109,17 +109,17 @@ class AppTheme {
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppTokens.radius20),
-          borderSide: const BorderSide(color: AppTokens.outline),
+          borderSide: const BorderSide(color: AppTokens.outlineStrong),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppTokens.radius20),
-          borderSide: const BorderSide(color: AppTokens.forest, width: 2),
+          borderSide: const BorderSide(color: AppTokens.coralDeep, width: 2),
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppTokens.forest,
-          foregroundColor: AppTokens.onForest,
+          backgroundColor: AppTokens.coralDeep,
+          foregroundColor: AppTokens.onCoralDeep,
           elevation: 0,
           shape: const StadiumBorder(),
           padding: const EdgeInsets.symmetric(
@@ -127,6 +127,17 @@ class AppTheme {
             horizontal: AppTokens.space24,
           ),
           textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        ),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: AppTokens.coralDeep,
+          foregroundColor: AppTokens.onCoralDeep,
+          shape: const StadiumBorder(),
+          padding: const EdgeInsets.symmetric(
+            vertical: AppTokens.space16,
+            horizontal: AppTokens.space24,
+          ),
         ),
       ),
     );

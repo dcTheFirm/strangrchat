@@ -1,4 +1,5 @@
 import { redis } from '../config/redis';
+import { prisma } from '../config/prisma';
 
 export interface MatchCriteria {
   userId: string;
@@ -50,6 +51,17 @@ export class MatchmakingService {
       // Check if partner's gender matches our preference
       // And avoid matching with self
       if (partnerId !== userId && (preferredGender === 'ANY' || partnerGender === preferredGender)) {
+        const blocked = await prisma.friendship.findFirst({
+          where: {
+            status: 'BLOCKED',
+            OR: [
+              { user1Id: userId, user2Id: partnerId },
+              { user1Id: partnerId, user2Id: userId }
+            ]
+          },
+          select: { id: true }
+        });
+        if (blocked) continue;
         const partnerSocketId = await redis.get(`${this.USER_PREFIX}${partnerId}`);
         
         if (partnerSocketId) {
@@ -79,8 +91,14 @@ export class MatchmakingService {
   }
 
   static async setPartner(userId: string, partnerId: string): Promise<void> {
-    await redis.set(`chat:partner:${userId}`, partnerId, 'EX', 3600);
-    await redis.set(`chat:partner:${partnerId}`, userId, 'EX', 3600);
+    await redis.eval(
+      "redis.call('SET', KEYS[1], ARGV[1], 'EX', 3600); redis.call('SET', KEYS[2], ARGV[2], 'EX', 3600); return 1",
+      2,
+      `chat:partner:${userId}`,
+      `chat:partner:${partnerId}`,
+      partnerId,
+      userId
+    );
   }
 
   static async getPartner(userId: string): Promise<string | null> {
@@ -88,11 +106,12 @@ export class MatchmakingService {
   }
 
   static async endChat(userId: string): Promise<string | null> {
-    const partnerId = await redis.get(`chat:partner:${userId}`);
-    if (partnerId) {
-      await redis.del(`chat:partner:${userId}`);
-      await redis.del(`chat:partner:${partnerId}`);
-    }
-    return partnerId;
+    return await redis.eval(
+      "local partner = redis.call('GET', KEYS[1]); if partner then redis.call('DEL', KEYS[1]); if redis.call('GET', ARGV[1] .. partner) == ARGV[2] then redis.call('DEL', ARGV[1] .. partner); end; end; return partner",
+      1,
+      `chat:partner:${userId}`,
+      'chat:partner:',
+      userId
+    ) as string | null;
   }
 }

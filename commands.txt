@@ -1,0 +1,26 @@
+cd strangrchat_server
+npx prisma studio --schema prisma/schema.prisma --port 5555
+
+
+
+
+
+
+docker compose logs -f --since=5m backend
+
+
+docker compose logs -f postgres
+
+
+flutter run -d ZA222LDQLX \           ok  13:16:58 
+  --dart-define=API_BASE_URL=http://192.168.31.141:3000 \
+  --dart-define=HCAPTCHA_SITE_KEY=12c07b94-a1ec-44ba-a7f8-ddfc25d4fef6 \
+  --dart-define=HCAPTCHA_HOSTNAME=192.168.31.141
+
+
+
+
+flutter run -d chrome \              INT  13:17:11 
+  --dart-define=API_BASE_URL=http://192.168.31.141:3000 \
+  --dart-define=HCAPTCHA_SITE_KEY=12c07b94-a1ec-44ba-a7f8-ddfc25d4fef6 \
+  --dart-define=HCAPTCHA_HOSTNAME=192.168.31.141

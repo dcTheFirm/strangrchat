@@ -85,14 +85,23 @@ Present: `flutter_riverpod ^3.4.3`, `go_router ^18.1.2`, `dio`, `socket_io_clien
 Absent (suggest adding, verifying current versions on pub.dev): `flutter_animate`, `animations` (official transitions), optional `lottie` (bundled assets only) or `rive` for one signature illustration. Fonts are bundled assets, not a package.
 
 
-## 8. New product and visual requirements supplied on 4 Nov 2026
+## 8. User product requirements captured on 4 Nov 2026
 
-The following are product/design decisions from the user and screenshot review, not claims that the repository already implements them. Re-check the current branch and backend before coding.
+These are product decisions supplied by the user, not evidence that the repository already implements them. Re-check current code and backend contracts before coding.
 
-- **Visual reference:** editorial “stranger lounge” structure: warm paper canvas, large expressive serif headlines, restrained sans-serif navigation/body, thin separators, spacious page layouts, simple strong actions, horizontally separated friend rows, three-tier subscription comparison, clean profile settings, and a right-side notifications inbox on wide layouts. Apply the approved Milky Sage theme (warm off-white, milky surfaces, muted sage, deep forest actions) rather than copying the screenshot's sample brand.
-- **Notifications:** add a top-bar notification bell and an inbox covering real product events, especially new friend requests and new message requests. The screenshot also shows match, subscription/trial, friend-saved, and chat-expiry notice patterns; show these only if those event sources exist. Confirm unread/read state, mark-all-read, push delivery, and route contracts before promising these actions. Never expose private chat message text in notification previews.
-- **Country filter:** remove distance/radius/nearby matching and replace it with a Same country preference. The current audit identified a city plus radius UI; re-check whether it still exists. Country matching must be server-enforced using a trusted country value; do not request GPS or show precise location.
-- **Female gender filter:** the Female match filter is intended to have three free uses and require subscription afterward. Reset cadence and when a use is consumed were not specified. Do not invent either; use a server-owned remaining-use/entitlement value or request the missing backend contract.
-- **Sticker identity:** every new profile should receive a random goofy app-owned sticker instead of a real-person profile photo. Assign it once and keep its sticker ID stable across the app; do not reroll it on rebuild. The sticker asset key is profile metadata, distinct from ephemeral chat media. Remove profile-photo affordances, but do not remove image support used for ephemeral chat unless separately requested.
+- **Notifications:** add a top-bar bell and notification inbox, especially for new friend requests and new message requests. Other categories (new match, subscription state, expiry) appear only if actual event sources exist. Keep previews privacy-safe and never include message bodies.
+- **Country preference:** remove distance/radius/nearby matching and replace it with Same country. Do not request GPS or reveal precise location. Country source and matching must be trusted and server-enforced.
+- **Female filter allowance:** Female matching has three free uses, after which subscription is required. Reset cadence and consumption moment are unspecified; do not invent them. Use server-owned allowance and entitlement state.
+- **Sticker identity:** assign one random app-owned goofy sticker to each profile at creation. Keep its ID stable across sessions/devices; do not accept user portrait uploads for profile identity. This does not change ephemeral chat-image behavior.
 
-The five screenshots are visual references only: do not copy the “Kindred” wordmark, human portraits, sample people/messages, or displayed dollar prices. Keep StrangrChat branding and actual product/store data.
+## 9. Latest visual direction supplied on 5 Nov 2026
+
+The previous Milky Sage/editorial direction is superseded by the latest Peach Pop dating/matching/chat references in `references/visuals/`. Use warm cream app surfaces, peach/pink/lavender gradient hero backdrops, coral/tangerine CTAs, soft rounded cards and bubbles, playful sticker artwork, and dark rounded bottom navigation with a coral active state. Use bold modern sans-serif typography rather than the earlier large editorial serif treatment. The screenshots show real human portraits and persisted message previews; these are explicitly replaced by stable goofy sticker avatars and privacy-safe, non-message status metadata in StrangrChat.
+
+## 10. Optional UI resources researched on 5 Nov 2026
+
+- Flyer Chat (`flutter_chat_ui`) is an Apache-2.0, backend-agnostic Flutter chat UI candidate. Check the current package/API, transitive dependencies, and cache behavior before adding it; never enable chat-content persistence.
+- Weekend is an MIT Flutter dating/social app reference but uses Supabase and location-based discovery; use as a visual/code study only, not as a replacement backend or a reason to restore GPS matching.
+- Love Luster UI Pack advertises a CC BY 4.0 asset licence with attribution; it is a dating-sim/visual-novel asset pack, not a complete social app kit.
+
+See `free-ui-resources.md` for links and integration cautions.
