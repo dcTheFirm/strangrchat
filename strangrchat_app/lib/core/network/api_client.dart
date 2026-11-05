@@ -17,15 +17,25 @@ class ApiConfig {
 
 class SessionStorage {
   SessionStorage({FlutterSecureStorage? storage})
-      : _storage = storage ?? const FlutterSecureStorage();
+    : _storage = storage ?? const FlutterSecureStorage();
 
   static const _tokenKey = 'session_jwt';
   static const _deviceIdKey = 'anonymous_device_id';
+  static const _profileCompleteKey = 'profile_complete';
   final FlutterSecureStorage _storage;
 
   Future<String?> readToken() => _storage.read(key: _tokenKey);
-  Future<void> saveToken(String token) => _storage.write(key: _tokenKey, value: token);
-  Future<void> clearToken() => _storage.delete(key: _tokenKey);
+  Future<void> saveToken(String token) =>
+      _storage.write(key: _tokenKey, value: token);
+  Future<void> clearToken() async {
+    await _storage.delete(key: _tokenKey);
+    await _storage.delete(key: _profileCompleteKey);
+  }
+
+  Future<bool> hasCompletedProfile() async =>
+      await _storage.read(key: _profileCompleteKey) == 'true';
+  Future<void> markProfileComplete() =>
+      _storage.write(key: _profileCompleteKey, value: 'true');
 
   Future<String?> readDeviceId() => _storage.read(key: _deviceIdKey);
   Future<void> saveDeviceId(String deviceId) =>
@@ -34,8 +44,8 @@ class SessionStorage {
 
 class ApiClient {
   ApiClient({Dio? dio, SessionStorage? sessionStorage})
-      : sessionStorage = sessionStorage ?? SessionStorage(),
-        dio = dio ?? Dio(BaseOptions(baseUrl: ApiConfig.baseUrl)) {
+    : sessionStorage = sessionStorage ?? SessionStorage(),
+      dio = dio ?? Dio(BaseOptions(baseUrl: ApiConfig.baseUrl)) {
     this.dio.options
       ..connectTimeout = const Duration(seconds: 10)
       ..receiveTimeout = const Duration(seconds: 15)
@@ -57,9 +67,13 @@ class ApiClient {
   final Dio dio;
   final SessionStorage sessionStorage;
 
-  Future<Response<T>> get<T>(String path, {Map<String, dynamic>? queryParameters}) =>
-      dio.get<T>(path, queryParameters: queryParameters);
+  Future<Response<T>> get<T>(
+    String path, {
+    Map<String, dynamic>? queryParameters,
+  }) => dio.get<T>(path, queryParameters: queryParameters);
 
   Future<Response<T>> post<T>(String path, {Object? data}) =>
       dio.post<T>(path, data: data);
+
+  Future<Response<T>> delete<T>(String path) => dio.delete<T>(path);
 }

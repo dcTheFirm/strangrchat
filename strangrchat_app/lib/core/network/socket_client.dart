@@ -5,7 +5,7 @@ import 'api_client.dart';
 import 'auth_service.dart';
 
 class SocketClient {
-  SocketClient({required AuthService authService}) : _authService = authService;
+  SocketClient({required this._authService});
 
   final AuthService _authService;
   io.Socket? _socket;
@@ -37,9 +37,20 @@ class SocketClient {
     }
   }
 
+  void emitWithAck(
+    String event,
+    Object? payload,
+    void Function(dynamic response) acknowledge,
+  ) {
+    _socket?.emitWithAck(event, payload, ack: acknowledge);
+  }
+
   void on(String event, void Function(dynamic data) listener) {
-    _socket?.off(event);
     _socket?.on(event, listener);
+  }
+
+  void off(String event, [void Function(dynamic data)? listener]) {
+    _socket?.off(event, listener);
   }
 
   void dispose() {

@@ -1,17 +1,21 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:screen_protector/screen_protector.dart';
+
 import 'app/theme.dart';
 import 'app/router.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // Enforce FLAG_SECURE globally to block screenshots and screen recordings on Android
-  try {
-    await ScreenProtector.preventScreenshotOn();
-  } catch (e) {
-    debugPrint('Screenshot protection could not be set: $e');
+
+  const allowScreenshots = bool.fromEnvironment('ALLOW_SCREENSHOTS');
+  if (!kDebugMode || !allowScreenshots) {
+    try {
+      await ScreenProtector.preventScreenshotOn();
+    } catch (error) {
+      debugPrint('Screenshot protection could not be set: $error');
+    }
   }
 
   runApp(const ProviderScope(child: StrangrChatApp()));

@@ -25,6 +25,8 @@ services:
       dockerfile: Dockerfile
     container_name: strangrchat_backend
     restart: unless-stopped
+    env_file:
+      - ./strangrchat_server/.env
     ports:
       - "3000:3000"
     environment:
@@ -33,7 +35,6 @@ services:
       - DATABASE_URL=${DATABASE_URL:-postgresql://strangr:strangr_secure_password_change_me@postgres:5432/strangrchat_db?schema=public}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - JWT_SECRET=${JWT_SECRET:-default_secret_please_change}
     depends_on:
       postgres:
         condition: service_healthy
